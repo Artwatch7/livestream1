@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>直播小程序 - Live Streaming App</title>
+    <meta name="description" content="一个功能完整的直播小程序，支持开播、观看和实时互动">
+    <meta name="keywords" content="直播,小程序,实时互动,视频,streaming">
+    <meta property="og:title" content="直播小程序 - Live Streaming App">
+    <meta property="og:description" content="一个功能完整的直播小程序，支持开播、观看和实时互动">
+    <meta name="twitter:title" content="直播小程序 - Live Streaming App">
+    <meta name="twitter:description" content="一个功能完整的直播小程序，支持开播、观看和实时互动">
+
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+
+    <!-- Predefined Tailwind CSS, use it as needed, or update base on your -->
+    <style type="text/tailwindcss">
+    @layer theme {
+        :root {
+            --primary-color: #ff4757;
+            --secondary-color: #5352ed;
+            --accent-color: #ffa502;
+            --success-color: #2ed573;
+            --warning-color: #ff6348;
+            --background-color: #f1f2f6;
+            --surface-color: #ffffff;
+            --text-primary: #2f3542;
+            --text-secondary: #57606f;
+            --border-color: #a4b0be;
+        }
+    }
+
+    @layer base {
+        body {
+            @apply bg-[var(--background-color)] text-[var(--text-primary)] font-sans;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            @apply font-bold text-[var(--text-primary)];
+        }
+    }
+
+    @layer components {
+        .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer;
+        }
+        
+        .btn-primary {
+            @apply bg-[var(--primary-color)] text-white hover:opacity-90;
+        }
+        
+        .btn-secondary {
+            @apply bg-[var(--secondary-color)] text-white hover:opacity-90;
+        }
+        
+        .btn-success {
+            @apply bg-[var(--success-color)] text-white hover:opacity-90;
+        }
+        
+        .card {
+            @apply bg-[var(--surface-color)] rounded-xl shadow-lg p-6 border border-[var(--border-color)];
+        }
+        
+        .input-field {
+            @apply w-full px-4 py-2 border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent;
+        }
+        
+        .live-indicator {
+            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[var(--primary-color)] text-white animate-pulse;
+        }
+    }
+
+    @layer utilities {
+        .text-shadow {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+    }
+    </style>
+
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel" src="components/Header.js"></script>
+    <script type="text/babel" src="components/LiveRoom.js"></script>
+    <script type="text/babel" src="components/CameraControls.js"></script>
+    <script type="text/babel" src="components/StreamerPanel.js"></script>
+    <script type="text/babel" src="components/ViewerPanel.js"></script>
+    <script type="text/babel" src="components/ChatBox.js"></script>
+    <script src="utils/cameraUtils.js"></script>
+    <script src="utils/mockTrickleAPI.js"></script>
+    <script type="text/babel" src="utils/mockData.js"></script>
+    <script type="text/babel" src="app.js"></script>
+</body>
+</html>
