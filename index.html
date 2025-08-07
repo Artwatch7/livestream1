@@ -83,6 +83,40 @@
         .gradient-bg {
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         }
+        
+        /* 移动端优化样式 */
+        .mobile-optimized {
+            @apply touch-manipulation;
+        }
+        
+        .video-container {
+            @apply relative overflow-hidden;
+        }
+        
+        .video-container video {
+            @apply w-full h-full object-cover;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+        
+        /* iOS Safari 特殊优化 */
+        @supports (-webkit-touch-callout: none) {
+            .ios-video-fix {
+                -webkit-playsinline: true;
+                -webkit-transform: translate3d(0, 0, 0);
+                transform: translate3d(0, 0, 0);
+            }
+        }
+        
+        /* 触摸友好的按钮 */
+        .touch-friendly {
+            @apply min-h-[44px] min-w-[44px];
+        }
+        
+        /* 防止双击缩放 */
+        .no-zoom {
+            touch-action: manipulation;
+        }
     }
     </style>
 
@@ -93,6 +127,7 @@
     <script type="text/babel" src="components/Header.js"></script>
     <script type="text/babel" src="components/LiveRoom.js"></script>
     <script type="text/babel" src="components/CameraControls.js"></script>
+    <script type="text/babel" src="components/CompatibilityAlert.js"></script>
     <script type="text/babel" src="components/StreamerPanel.js"></script>
     <script type="text/babel" src="components/ViewerPanel.js"></script>
     <script type="text/babel" src="components/ChatBox.js"></script>

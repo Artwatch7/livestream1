@@ -1,6 +1,29 @@
 // 摄像头工具函数
 // 提供摄像头访问、控制和设备管理功能
 
+// 浏览器检测函数
+window.detectBrowser = function() {
+  const userAgent = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isAndroid = /Android/.test(userAgent);
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  const isChrome = /Chrome/.test(userAgent);
+  const isFirefox = /Firefox/.test(userAgent);
+  const isEdge = /Edge/.test(userAgent);
+  const isMobile = isIOS || isAndroid || /Mobile/.test(userAgent);
+  
+  return {
+    isIOS,
+    isAndroid,
+    isSafari,
+    isChrome,
+    isFirefox,
+    isEdge,
+    isMobile,
+    userAgent
+  };
+};
+
 // 默认摄像头约束配置
 const DEFAULT_CONSTRAINTS = {
   video: {
@@ -21,12 +44,51 @@ const BASIC_CONSTRAINTS = {
   audio: false
 };
 
+// 移动端优化约束配置
+const MOBILE_CONSTRAINTS = {
+  video: {
+    width: { ideal: 480 },
+    height: { ideal: 360 },
+    frameRate: { ideal: 15 },
+    facingMode: 'user' // 前置摄像头
+  },
+  audio: false
+};
+
+// 获取最优约束配置
+window.getOptimalConstraints = function() {
+  const browser = detectBrowser();
+  
+  if (browser.isMobile) {
+    if (browser.isIOS && browser.isSafari) {
+      // iOS Safari 特殊处理
+      return {
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 240 },
+          frameRate: { ideal: 15 },
+          facingMode: 'user'
+        },
+        audio: false
+      };
+    }
+    return MOBILE_CONSTRAINTS;
+  }
+  
+  return DEFAULT_CONSTRAINTS;
+};
+
 // 获取摄像头流
-window.getCameraStream = async function(constraints = DEFAULT_CONSTRAINTS) {
+window.getCameraStream = async function(constraints = null) {
   try {
     // 检查浏览器支持
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('BROWSER_NOT_SUPPORTED');
+    }
+
+    // 如果没有提供约束，使用最优约束
+    if (!constraints) {
+      constraints = getOptimalConstraints();
     }
 
     // 尝试获取摄像头流
@@ -37,7 +99,9 @@ window.getCameraStream = async function(constraints = DEFAULT_CONSTRAINTS) {
       // 如果高质量约束失败，尝试基础约束
       if (error.name === 'OverconstrainedError' || error.name === 'NotReadableError') {
         console.warn('High quality constraints failed, trying basic constraints:', error);
-        stream = await navigator.mediaDevices.getUserMedia(BASIC_CONSTRAINTS);
+        const browser = detectBrowser();
+        const fallbackConstraints = browser.isMobile ? MOBILE_CONSTRAINTS : BASIC_CONSTRAINTS;
+        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
       } else {
         throw error;
       }

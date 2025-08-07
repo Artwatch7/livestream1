@@ -12,6 +12,11 @@ function StreamerPanel({ isLive, room, onStopStreaming, onUpdateRoom }) {
     const [currentDevice, setCurrentDevice] = React.useState('');
     const [cameraError, setCameraError] = React.useState('');
     const videoRef = React.useRef(null);
+    
+    // 兼容性检测状态
+    const [showCompatibilityAlert, setShowCompatibilityAlert] = React.useState(false);
+    const [browserInfo, setBrowserInfo] = React.useState(null);
+    const [compatibilityErrorType, setCompatibilityErrorType] = React.useState(null);
 
     React.useEffect(() => {
       if (room) {
@@ -52,9 +57,19 @@ function StreamerPanel({ isLive, room, onStopStreaming, onUpdateRoom }) {
       }
     }, [isLive, room, viewers, likes]);
 
-    // 初始化摄像头设备列表
+    // 初始化摄像头设备列表和兼容性检测
     React.useEffect(() => {
       const initCameraDevices = async () => {
+        // 执行浏览器兼容性检测
+        const browser = detectBrowser();
+        setBrowserInfo(browser);
+        
+        // 显示兼容性提示
+        if (browser.isMobile || (browser.isIOS && browser.isSafari)) {
+          setShowCompatibilityAlert(true);
+          setCompatibilityErrorType(browser.isIOS && browser.isSafari ? 'IOS_SAFARI' : 'MOBILE');
+        }
+        
         const result = await getCameraDevices();
         if (result.success) {
           setCameraDevices(result.devices);
@@ -63,6 +78,10 @@ function StreamerPanel({ isLive, room, onStopStreaming, onUpdateRoom }) {
           }
         } else {
           console.error('Failed to get camera devices:', result.error);
+          if (result.error.type === 'BROWSER_NOT_SUPPORTED') {
+            setShowCompatibilityAlert(true);
+            setCompatibilityErrorType('BROWSER_NOT_SUPPORTED');
+          }
         }
       };
       
@@ -236,6 +255,14 @@ function StreamerPanel({ isLive, room, onStopStreaming, onUpdateRoom }) {
             />
           </div>
         </div>
+        
+        {/* 兼容性警告 */}
+        <CompatibilityAlert 
+          show={showCompatibilityAlert}
+          onClose={() => setShowCompatibilityAlert(false)}
+          browserInfo={browserInfo}
+          errorType={compatibilityErrorType}
+        />
       </div>
     );
   } catch (error) {
