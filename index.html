@@ -92,7 +92,8 @@
     // =========================================================================
     
     // 请将下方引号内的内容替换为您 Supabase 的 Project URL
-    const SUPABASE_URL = 'https://cxegmfaalekymetflohv.supabase.co/rest/v1/';
+    // 注意：只需填到 .supabase.co 即可，不要加 /rest/v1/，SDK 会自动补全
+    const SUPABASE_URL = 'https://cxegmfaalekymetflohv.supabase.co';
     
     // 请将下方引号内的内容替换为您 Supabase 的 anon public key
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4ZWdtZmFhbGVreW1ldGZsb2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDc5MTYsImV4cCI6MjA5ODAyMzkxNn0.MCnfXyVM4lTNOif8WQ5pjLfYkFgV2ePDes48AZ3ORwY';
@@ -206,6 +207,7 @@
             } catch (err) {
                 console.warn('云端获取失败，使用本地缓存:', err);
                 appData = JSON.parse(localStorage.getItem('eng_practice_v13_cloud_backup')) || { activeSetId: 1, sets: [] };
+                document.getElementById('repo-stats').innerHTML = '<span style="color:var(--error);">⚠️ 云端连接失败，当前使用本地缓存数据</span>';
             }
         } else {
             console.warn('未配置 Supabase，使用本地模式');
@@ -240,7 +242,8 @@
                 updateStats();
             } catch (e) {
                 console.error("云端报错详细信息:", e);
-                alert("⚠️ 云端同步失败！\n数据只保存在了您本机的缓存中，别人暂时看不到。\n请确保在 Supabase 的 SQL Editor 运行了那段解锁权限的代码！");
+                let errMsg = e?.message || (e?.error?.message) || JSON.stringify(e) || '未知错误';
+                alert("⚠️ 云端同步失败！\n\n错误详情: " + errMsg + "\n\n数据已保存到本机缓存，别人暂时看不到。\n如反复出现，请检查 Supabase 的 RLS 权限配置。");
                 updateStats();
             }
         } else {
