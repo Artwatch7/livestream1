@@ -92,10 +92,10 @@
     // =========================================================================
     
     // 请将下方引号内的内容替换为您 Supabase 的 Project URL
-    const SUPABASE_URL = 'https://ccfjdyqqaiiwthglnqhf.supabase.co/rest/v1/';
+    const SUPABASE_URL = 'https://cxegmfaalekymetflohv.supabase.co/rest/v1/';
     
     // 请将下方引号内的内容替换为您 Supabase 的 anon public key
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmpkeXFxYWlpd3RoZ2xucWhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NTMyODYsImV4cCI6MjA5ODAyOTI4Nn0.jLNPkpz0SH9o_6xi_ATs8EMMkrr7UKmj2Ub_AZQ4yY4';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4ZWdtZmFhbGVreW1ldGZsb2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDc5MTYsImV4cCI6MjA5ODAyMzkxNn0.MCnfXyVM4lTNOif8WQ5pjLfYkFgV2ePDes48AZ3ORwY';
 
     // =========================================================================
 
@@ -230,7 +230,7 @@
                 document.getElementById('repo-stats').innerHTML = "⏳ 正在同步到云端大脑...";
                 
                 // 【关键修复】：加入 .select() 来获取更新后的结果，防止被 RLS 默默拦截
-                const { data, error } = await _supabase.from('english_config').update({ app_data: appData }).eq('id', 1).select();
+                const { data, error } = await _supabase.from('english_config').upsert({ app_data: appData }).eq('id', 1).select();
                 
                 if (error) throw error;
                 if (!data || data.length === 0) {
