@@ -230,7 +230,7 @@
                 document.getElementById('repo-stats').innerHTML = "⏳ 正在同步到云端大脑...";
                 
                 // 【关键修复】：加入 .select() 来获取更新后的结果，防止被 RLS 默默拦截
-                const { data, error } = await _supabase.from('english_config').upsert({ app_data: appData }).eq('id', 1).select();
+                const { data, error } = await _supabase.from('english_config').upsert({ id: 1, app_data: appData }).select();
                 
                 if (error) throw error;
                 if (!data || data.length === 0) {
