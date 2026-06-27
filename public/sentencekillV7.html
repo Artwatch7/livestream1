@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能英语综合训练系统 (全词性解析版)</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg: #F3F4F6;
+            --card-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --text-light: #6B7280;
+            --success: #10B981;
+            --error: #EF4444;
+            --border: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 2.2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-light);
+            margin-bottom: 25px;
+            font-size: 1em;
+            font-weight: 500;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background-color: #E5E7EB;
+            color: var(--text-main);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .tab-btn:hover {
+            background-color: #D1D5DB;
+            transform: translateY(-1px);
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .question-block {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .question-block:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .cn-text {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #111827;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: inherit;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* 动态宽度的核心：去掉了 fixed width，依赖内联的 style="width: XXch;" */
+        input.blank-input {
+            min-width: 80px; 
+            max-width: 100%;
+            display: inline-block;
+            margin: 0 6px;
+            text-align: center;
+            border-bottom: 2px solid var(--primary);
+            border-top: none; border-left: none; border-right: none;
+            border-radius: 0;
+            padding: 4px;
+            background: transparent;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        input.blank-input::placeholder {
+            color: #9CA3AF;
+            font-weight: normal;
+        }
+
+        button.action-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+
+        button.action-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .feedback {
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        .correct { color: var(--success); }
+        .wrong { color: var(--error); }
+        
+        .hint-text {
+            color: var(--text-light);
+            font-size: 1em;
+            background: #F3F4F6;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 20px;
+        }
+
+        .recitation-box {
+            background: #F8FAFC;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px dashed #CBD5E1;
+            font-size: 1.25em;
+            line-height: 1.8;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            word-wrap: break-word;
+        }
+        .recitation-box:hover {
+            background: #F1F5F9;
+            border-color: #94A3B8;
+        }
+
+        .import-area {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        #rich-editor {
+            background: #FFFFFF;
+            min-height: 250px;
+            border-radius: 8px;
+            padding: 15px;
+            border: 2px dashed #9CA3AF;
+            font-size: 1.1em;
+            line-height: 1.8;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        #rich-editor:focus { border-color: var(--primary); }
+        #rich-editor:empty:before { 
+            content: attr(placeholder); 
+            color: #9CA3AF; 
+            pointer-events: none;
+            display: block; 
+        }
+
+        .settings-panel {
+            background: #EFF6FF;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #BFDBFE;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📝 智能英语练习系统</h1>
+    <div class="subtitle" id="repo-stats">题库状态计算中...</div>
+    
+    <div class="tabs">
+        <button class="tab-btn active" id="btn-translate" onclick="switchTab('translate',this)">中译英练习</button>
+        <button class="tab-btn" onclick="switchTab('recite',this)">背诵辅助</button>
+        <button class="tab-btn" onclick="switchTab('fill',this)">词形填空</button>
+        <button class="tab-btn" onclick="switchTab('test',this)">🎲 随机检测</button>
+        <button class="tab-btn" id="btn-import" onclick="switchTab('import',this)">📥 Word 智能导入</button>
+    </div>
+
+    <div id="app-content" class="card">
+        <!-- 动态内容区 -->
+    </div>
+</div>
+
+<script>
+    
+    // 1. 无提示虚词库 (介词、连词) - 划线只挖空，不给括号提示
+    const noHintWords = new Set([
+        'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'about', 'into', 'over', 'after', 'before', 'under', 'between', 'through', 'during', 'without', 
+        'and', 'but', 'or', 'so', 'because', 'if', 'although', 'though', 'unless', 'since', 'when', 'while', 'as', 'that' 
+    ]);
+
+    // 2. 短语处理时需要过滤的辅助词汇 (包含冠词，确保 the greatest 剥离 the)
+    const auxVerbs = new Set([
+        'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must',
+        'be', 'am', 'is', 'are', 'was', 'were', 'been', 'being',
+        'have', 'has', 'had',
+        'do', 'does', 'did', 'to',
+        'more', 'most', 'less', 'least', 'very', 'too', 'so', 'quite', 'rather',
+        'a', 'an', 'the' 
+    ]);
+
+    // 3. 原生以 er/est 结尾的受保护词汇 (白名单机制，防止 to offer 变成 of)
+    const baseWords = new Set([
+        'offer', 'cover', 'discover', 'consider', 'remember', 'matter', 'enter', 'suffer', 'answer',
+        'gather', 'bother', 'wonder', 'wander', 'order', 'prefer', 'refer', 'differ', 'deliver',
+        'water', 'paper', 'computer', 'mother', 'father', 'brother', 'sister', 'daughter',
+        'member', 'number', 'river', 'summer', 'winter', 'corner', 'danger', 'dinner',
+        'letter', 'silver', 'finger', 'flower', 'power', 'tower', 'shower', 'never', 'ever',
+        'over', 'under', 'after', 'other', 'another', 'weather', 'whether', 'together',
+        'master', 'poster', 'spider', 'tiger', 'better', 'bitter', 'butter', 'clever'
+    ]);
+
+    // 4. 庞大不规则映射库 (包含动词、名词、代词及不规则比较级)
+    const irregulars = {
+        // 代词归一化
+        'me':'I', 'my':'I', 'mine':'I', 'myself':'I',
+        'us':'we', 'our':'we', 'ours':'we', 'ourselves':'we',
+        'him':'he', 'his':'he', 'himself':'he',
+        'her':'she', 'hers':'she', 'herself':'she',
+        'them':'they', 'their':'they', 'theirs':'they', 'themselves':'they',
+        'its':'it', 'itself':'it',
+        
+        // 名词不规则复数
+        'men':'man', 'women':'woman', 'children':'child', 'teeth':'tooth', 
+        'feet':'foot', 'mice':'mouse', 'leaves':'leaf', 'knives':'knife',
+        'wives':'wife', 'lives':'life', 'thieves':'thief', 'heroes':'hero',
+        'potatoes':'potato', 'tomatoes':'tomato', 'phenomena':'phenomenon',
+        'criteria':'criterion', 'data':'datum',
+
+        // 比较级/最高级 (安全匹配池)
+        'best':'good', 'worse':'bad', 'worst':'bad', 'farther':'far', 'farthest':'far', 
+        'further':'far', 'furthest':'far', 'nicer':'nice', 'nicest':'nice', 
+        'larger':'large', 'largest':'large', 'later':'late', 'latest':'late', 
+        'braver':'brave', 'bravest':'brave', 'closer':'close', 'closest':'close',
+        'wider':'wide', 'widest':'wide', 'safer':'safe', 'safest':'safe',
+        
+        // 常见派生词特殊映射 (还原到最短动词/名词/形容词词根)
+        'decision':'decide', 'conclusion':'conclude', 'action':'act', 'solution':'solve', 
+        'truth':'true', 'argument':'argue', 'description':'describe', 'explanation':'explain', 
+        'success':'succeed', 'successful':'succeed', 'successfully':'succeed',
+        'choice':'choose', 'speech':'speak', 'death':'die', 'dead':'die', 'dying':'die', 
+        'marriage':'marry', 'flight':'fly', 'loss':'lose', 'weight':'weigh', 
+        'growth':'grow', 'strength':'strong', 'length':'long',
+
+        // 不规则动词
+        'went':'go', 'goes':'go', 'gone':'go', 'took':'take', 'taken':'take', 
+        'saw':'see', 'seen':'see', 'ate':'eat', 'eaten':'eat', 'gave':'give', 
+        'given':'give', 'came':'come', 'knew':'know', 'known':'know', 
+        'did':'do', 'does':'do', 'done':'do', 'was':'be', 'were':'be', 
+        'is':'be', 'are':'be', 'am':'be', 'has':'have', 'had':'have', 
+        'made':'make', 'found':'find', 'left':'leave', 'felt':'feel', 
+        'brought':'bring', 'bought':'buy', 'thought':'think', 'stood':'stand', 
+        'understood':'understand', 'threw':'throw', 'thrown':'throw', 
+        'flew':'fly', 'flown':'fly', 'drew':'draw', 'drawn':'draw', 
+        'showed':'show', 'shown':'show', 'proved':'prove', 'proven':'prove', 
+        'written':'write', 'wrote':'write', 'spoken':'speak', 'stolen':'steal', 
+        'broken':'break', 'chosen':'choose', 'driven':'drive', 'ridden':'ride', 
+        'risen':'rise', 'beaten':'beat', 'bitten':'bite', 'hidden':'hide', 
+        'forgotten':'forget', 'forgiven':'forgive', 'frozen':'freeze', 
+        'shaken':'shake', 'woken':'wake', 'been':'be', 'being':'be', 
+        'solving':'solve', 'told':'tell', 'sold':'sell', 'paid':'pay', 
+        'said':'say', 'laid':'lay', 'kept':'keep', 'slept':'sleep', 
+        'wept':'weep', 'crept':'creep', 'built':'build', 'lent':'lend', 
+        'sent':'send', 'spent':'spend', 'lost':'lose', 'shot':'shoot', 
+        'lit':'light', 'sat':'sit', 'won':'win', 'spun':'spin', 'dug':'dig', 
+        'struck':'strike', 'hung':'hang', 'held':'hold', 'led':'lead', 
+        'fed':'feed', 'met':'meet', 'read':'read', 'heard':'hear', 'meant':'mean',
+        'caught':'catch', 'taught':'teach', 'fought':'fight'
+    };
+
+    
+    // 核心算法：全词性迭代扒皮还原
+    function getBaseForm(word) {
+        let w = word.toLowerCase();
+        
+        // 0. 优先级最高：检查是否为白名单保护词 (如 offer, cover)
+        if (baseWords.has(w)) return w;
+        
+        // 1. 处理所有格 (如 children's -> children)
+        w = w.replace(/'s$/, '').replace(/'$/, '');
+        if (irregulars[w]) return irregulars[w];
+        if (baseWords.has(w)) return w; // 脱掉所有格后再次查白名单
+        
+        // 2. 迭代剥离副词/形容词/名词派生后缀，直到找到最短形态
+        let changed = true;
+        while(changed) {
+            changed = false;
+            let temp = w;
+            
+            // 剥离副词后缀 -ly, -ally, -ily
+            if (temp.endsWith('ily') && temp.length > 5) temp = temp.slice(0, -3) + 'y';
+            else if (temp.endsWith('ally') && temp.length > 6) temp = temp.slice(0, -4);
+            else if (temp.endsWith('ly') && temp.length > 4 && !temp.endsWith('ply')) temp = temp.slice(0, -2);
+            
+            // 剥离名词后缀 -ness, -ment, -ity
+            else if (temp.endsWith('iness') && temp.length > 6) temp = temp.slice(0, -5) + 'y';
+            else if (temp.endsWith('ness') && temp.length > 5) temp = temp.slice(0, -4);
+            else if (temp.endsWith('ment') && temp.length > 5) temp = temp.slice(0, -4);
+            else if (temp.endsWith('ity') && temp.length > 5) {
+                if (temp.endsWith('ability') && temp.length > 7) temp = temp.slice(0, -5) + 'le'; 
+                else temp = temp.slice(0, -3); 
+            }
+            
+            // 剥离形容词后缀 -ful, -less
+            else if (temp.endsWith('ful') && temp.length > 5) temp = temp.slice(0, -3);
+            else if (temp.endsWith('less') && temp.length > 6) temp = temp.slice(0, -4);
+            
+            if (temp !== w) {
+                w = temp;
+                changed = true;
+                if (irregulars[w]) return irregulars[w]; 
+                if (baseWords.has(w)) return w; 
+            }
+        }
+
+        // 3. 处理形容词/副词的规则比较级、最高级 (er, est, ier, iest)
+        if (w.endsWith('iest') && w.length > 5) return w.slice(0, -4) + 'y'; 
+        if (w.endsWith('ier') && w.length > 4) return w.slice(0, -3) + 'y';   
+        if (w.match(/([^aeiou])\1est$/)) return w.slice(0, -4); // biggest -> big
+        if (w.match(/([^aeiou])\1er$/)) return w.slice(0, -3);  // bigger -> big
+        
+        // 常规的 er/est 直接截断 (针对 greatest -> great, fastest -> fast)
+        // 特殊的(nice -> nicer) 已经在 irregulars 里面处理了
+        if (w.endsWith('est') && w.length > 4) return w.slice(0, -3);
+        if (w.endsWith('er') && w.length > 4) return w.slice(0, -2);
+
+        // 4. 处理复数与三单 (s, es, ies)
+        if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y'; 
+        if (w.endsWith('es') && w.match(/(s|sh|ch|x|z)es$/)) w = w.slice(0, -2); 
+        else if (w.endsWith('s') && w.length > 3 && !w.endsWith('ss') && !w.endsWith('us') && !w.endsWith('is')) w = w.slice(0, -1); 
+        
+        if (irregulars[w]) return irregulars[w];
+        if (baseWords.has(w)) return w;
+
+        // 5. 处理动词时态 (ing, ed)
+        if (w.endsWith('ing')) {
+            if (w.match(/ving$/)) return w.slice(0, -3) + 'e'; 
+            if (w.match(/cing$/)) return w.slice(0, -3) + 'e'; 
+            if (w.match(/([^aeiou])\1ing$/)) return w.slice(0, -4); 
+            if (w.match(/[aeiou][^aeiou]ing$/) && !w.match(/(y|w|x)ing$/)) return w.slice(0, -3) + 'e'; 
+            return w.slice(0, -3); 
+        }
+        if (w.endsWith('ed')) {
+            if (w.match(/([^aeiou])\1ed$/)) return w.slice(0, -3); 
+            if (w.match(/[aeiou][^aeiou]ed$/) && !w.match(/(y|w|x)ed$/)) return w.slice(0, -1); 
+            return w.slice(0, -2); 
+        }
+
+        if (w.endsWith('ation') && w.length > 6) return w.slice(0, -5) + 'ate'; 
+        
+        return w; 
+    }
+
+    // 核心短语解析 (处理 the greatest, will be written, should work 等)
+    function getPhraseBaseForm(phrase) {
+        const words = phrase.split(/\s+/);
+        let resultWords = [];
+        let hasNot = false;
+
+        for (let word of words) {
+            let cleanW = word.toLowerCase().replace(/[^a-z']/g, '');
+            if (!cleanW) continue;
+
+            if (cleanW === 'not' || cleanW.endsWith("n't")) {
+                hasNot = true;
+                continue;
+            }
+            if (auxVerbs.has(cleanW)) continue; // 智能过滤冠词(the)和助动词(should)
+
+            resultWords.push(getBaseForm(cleanW));
+        }
+
+        // 补底逻辑：如果全都被过滤了，取最后一个词还原
+        if (resultWords.length === 0 && words.length > 0) {
+             let lastWord = words[words.length - 1].toLowerCase().replace(/[^a-z']/g, '');
+             if(lastWord.endsWith("n't")) lastWord = lastWord.slice(0,-3);
+             resultWords.push(getBaseForm(lastWord)); 
+        }
+
+        let basePhrase = resultWords.join(' ');
+        if (hasNot) basePhrase = 'not ' + basePhrase; 
+        return basePhrase;
+    }
+
+    
+    
+function escapeHtml(str){
+ return String(str)
+ .replace(/&/g,'&amp;')
+ .replace(/</g,'&lt;')
+ .replace(/>/g,'&gt;')
+ .replace(/"/g,'&quot;')
+ .replace(/'/g,'&#39;');
+}
+
+function fisherYates(arr){
+ for(let i=arr.length-1;i>0;i--){
+   const j=Math.floor(Math.random()*(i+1));
+   [arr[i],arr[j]]=[arr[j],arr[i]];
+ }
+ return arr;
+}
+
+const professionWords = new Set(['teacher','worker','driver','player','manager','leader','speaker','writer','reader','visitor','customer','farmer','engineer']);
+
+// 数据库与状态管理
+    const defaultDatabase = [
+        { id: 1, cn: "我们已经完成了这个项目。", en: "We have already finished this project.", fill: "We {have already finished} (already, finish) this project." },
+        { id: 2, cn: "她每天早上去跑步。", en: "She goes jogging every morning.", fill: "She {goes} (go) jogging every morning." }
+    ];
+
+    let database = JSON.parse(localStorage.getItem('eng_practice_v6_db')) || defaultDatabase;
+    let currentMode = 'translate';
+
+    function updateStats() {
+        document.getElementById('repo-stats').innerHTML = `💡 当前题库共收录 <strong style="color:var(--primary); font-size:1.2em;">${database.length}</strong> 个句子`;
+    }
+
+    function switchTab(mode, btn=null) {
+        currentMode = mode;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(btn) btn.classList.add('active');
+        renderContent();
+    }
+
+    function renderContent() {
+        updateStats();
+        const contentDiv = document.getElementById('app-content');
+        contentDiv.innerHTML = '';
+        
+        if (database.length === 0 && currentMode !== 'import') {
+            contentDiv.innerHTML = `<div style="text-align:center; padding:50px;"><p style="font-size:1.2em; color:var(--text-light);">题库空空如也，请先导入句子！ 📭</p><button class="action-btn" onclick="document.getElementById('btn-import').click()">前往导入</button></div>`;
+            return;
+        }
+
+        if (currentMode === 'translate') renderTranslate();
+        else if (currentMode === 'recite') renderRecite();
+        else if (currentMode === 'fill') renderFill();
+        else if (currentMode === 'test') renderTestSettings();
+        else if (currentMode === 'import') renderImportPanel();
+    }
+
+    
+    // --- 模式 1: 中译英 ---
+    function renderTranslate(dataToRender = database, isTest = false) {
+        let html = isTest ? '' : '<div class="hint-text"><strong>🎯 目标：</strong> 根据中文提示写出完整英文句子，注意时态、拼写及标点符号。</div>';
+        dataToRender.forEach((item, index) => {
+            html += `
+                <div class="question-block">
+                    <div class="cn-text">${index + 1}. ${item.cn}</div>
+                    <textarea id="trans-input-${item.id}" rows="2" placeholder="在此输入英文..."></textarea>
+                    ${isTest ? '' : `<button class="action-btn" onclick="checkTranslation(${item.id})">核对答案</button>`}
+                    <div id="trans-feedback-${item.id}" class="feedback"></div>
+                </div>`;
+        });
+        if (!isTest) document.getElementById('app-content').innerHTML = html;
+        return html;
+    }
+
+    function checkTranslation(id) {
+        const item = database.find(d => d.id === id);
+        const input = document.getElementById(`trans-input-${id}`).value.trim();
+        const feedbackDiv = document.getElementById(`trans-feedback-${id}`);
+        const normalize = (s) => s.toLowerCase().replace(/[.,!?]$/, '').replace(/['’]/g, "'").replace(/\s+/g, " ").trim();
+        if (normalize(input) === normalize(item.en)) {
+            feedbackDiv.innerHTML = '<span class="correct">✅ 完美回答正确！</span>';
+        } else {
+            feedbackDiv.innerHTML = `<span class="wrong">❌ 存在瑕疵。</span><br><span class="correct" style="color:#059669;">正确答案：${item.en}</span>`;
+        }
+    }
+
+    // --- 模式 2: 意群背诵辅助 ---
+    function renderRecite() {
+        let html = '<div class="hint-text"><strong>🎯 目标：</strong> 训练语感。系统依据标点切分意群，仅提供每个意群<b>首个单词</b>的首字母。<br>👉 点击下方英文区域可一键查看答案，再次点击隐藏。</div>';
+        
+        database.forEach((item, index) => {
+            let isFirstInGroup = true;
+            const hintLetters = item.en.replace(/[a-zA-Z]+|[^a-zA-Z]+/g, match => {
+                if (/^[a-zA-Z]+$/.test(match)) {
+                    if (isFirstInGroup) {
+                        isFirstInGroup = false;
+                        return match[0] + '_'.repeat(match.length - 1); 
+                    } else {
+                        return '_'.repeat(match.length); 
+                    }
+                } else {
+                    if (/[.,;:!?\/"]/.test(match)) isFirstInGroup = true; 
+                    return match; 
+                }
+            });
+
+            html += `<div class="question-block"><div class="cn-text">${index+1}. ${item.cn}</div><div class="recitation-box" data-full="${item.en}" data-hint="${hintLetters}" onclick="toggleRecite(this)">${hintLetters}</div></div>`;
+        });
+        document.getElementById('app-content').innerHTML = html;
+    }
+
+    function toggleRecite(el) {
+        el.innerText = (el.innerText === el.dataset.hint) ? el.dataset.full : el.dataset.hint;
+        el.style.color = (el.innerText === el.dataset.full) ? "var(--primary)" : "inherit";
+        el.style.fontWeight = (el.innerText === el.dataset.full) ? "bold" : "normal";
+    }
+
+    // --- 模式 3: 词形填空 (动态宽度支持) ---
+    function renderFill(dataToRender = database, isTest = false) {
+        let html = isTest ? '' : '<div class="hint-text"><strong>🎯 目标：</strong> 考查时态及固定搭配。请根据括号内的提示词，填入正确形式。</div>';
+        dataToRender.forEach((item, index) => {
+            let fillText = item.fill.replace(/\{([^}]+)\}(?:\s*\(([^)]+)\))?/g, (m, ans, hint) => {
+                let placeholderText = hint ? `(${hint})` : ' ';
+                // 动态计算所需的输入框宽度 (根据答案长度或提示词长度，取最大值)，使用 ch 字符单位
+                let chLength = Math.max(ans.length, placeholderText.length) + 4; 
+                return `<input type="text" class="blank-input" data-ans="${ans}" placeholder="${placeholderText}" style="width: ${chLength}ch;" autocomplete="off">`;
+            });
+            html += `<div class="question-block"><div class="cn-text">${index+1}. ${item.cn}</div><div style="font-size:1.25em; line-height:2.2;">${fillText}</div>${isTest ? '' : `<button class="action-btn" style="margin-top:15px;" onclick="checkFill(this)">核对答案</button>`}<div class="feedback"></div></div>`;
+        });
+        if (!isTest) document.getElementById('app-content').innerHTML = html;
+        return html;
+    }
+
+    function checkFill(btn) {
+        const block = btn.parentElement;
+        const inputs = block.querySelectorAll('.blank-input');
+        const feedback = block.querySelector('.feedback');
+        let correctArr = [];
+        let ok = true;
+        inputs.forEach(i => {
+            const ans = i.dataset.ans.trim();
+            correctArr.push(ans);
+            if(i.value.trim().toLowerCase() === ans.toLowerCase()) {
+                i.style.borderBottomColor = "var(--success)"; i.style.color = "var(--success)";
+            } else { 
+                i.style.borderBottomColor = "var(--error)"; i.style.color = "var(--error)"; ok = false; 
+            }
+        });
+        feedback.innerHTML = ok ? '<span class="correct">✅ 全部正确</span>' : `<span class="wrong">❌ 存在错误，正确答案为: <br><span style="color:#059669">${correctArr.join(' / ')}</span></span>`;
+    }
+
+
+    // --- 模式 4: 随机检测卷配置 ---
+    function renderTestSettings() {
+        let html = `
+            <div class="hint-text"><strong>🎯 目标：</strong> 模拟考试环境。您可以自由选择抽查的题数及测试题型。</div>
+            <div class="settings-panel">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;">
+                    <label style="font-weight: bold; font-size: 1.1em;">出题题型：</label>
+                    <select id="test-type" style="font-size: 1.1em; padding: 8px; border-radius: 6px; border: 1px solid #D1D5DB; outline: none; cursor:pointer;">
+                        <option value="mix">随机混合 (翻译+填空)</option>
+                        <option value="trans">仅中译英</option>
+                        <option value="fill">仅词形填空</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 25px;">
+                    <label style="font-weight: bold; font-size: 1.1em;">抽查数量：</label>
+                    <input type="number" id="test-count" value="${Math.min(5, database.length)}" min="1" max="${database.length}" style="width: 100px; text-align: center; font-size: 1.2em; margin: 0; outline: none;">
+                </div>
+                <button class="action-btn" style="width: 100%; padding: 15px; font-size: 1.2em; background:#2563EB;" onclick="generateTest()">🚀 生成专属试卷</button>
+            </div>
+            <div id="test-questions"></div>
+        `;
+        document.getElementById('app-content').innerHTML = html;
+    }
+
+    function generateTest() {
+        const count = parseInt(document.getElementById('test-count').value);
+        const testType = document.getElementById('test-type').value;
+        if (isNaN(count) || count < 1 || count > database.length) {
+            alert(`请输入有效的数量 (1 - ${database.length})`); return;
+        }
+        
+        const shuffled = fisherYates([...database]).slice(0, count);
+        let html = `<h3 style="text-align: center; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-top: 30px;">📄 模拟检测试卷</h3>`;
+        
+        shuffled.forEach((item, index) => {
+            let isTrans;
+            if (testType === 'trans') isTrans = true;
+            else if (testType === 'fill') isTrans = false;
+            else isTrans = Math.random() > 0.5;
+
+            html += `<div class="test-item-box" data-id="${item.id}" data-type="${isTrans?'trans':'fill'}" style="background:#F9FAFB; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">`;
+            html += `<div style="display:inline-block; padding:4px 10px; background:var(--primary); color:white; border-radius:4px; font-size:0.85em; font-weight:bold; margin-bottom:15px;">${isTrans?'笔译题':'填空题'}</div>`;
+            html += isTrans ? renderTranslate([item], true) : renderFill([item], true);
+            html += `</div>`;
+        });
+        html += `<button class="action-btn" style="width:100%; padding:15px; font-size:1.2em; margin-top:10px;" onclick="submitFullTest()">交卷并评分</button><div id="final-score" style="margin-top:25px; text-align:center;"></div>`;
+        document.getElementById('test-questions').innerHTML = html;
+    }
+
+    function submitFullTest() {
+        const items = document.querySelectorAll('.test-item-box');
+        let score = 0;
+        items.forEach(box => {
+            const id = parseInt(box.dataset.id);
+            const item = database.find(d => d.id === id);
+            if (box.dataset.type === 'trans') {
+                const val = box.querySelector('textarea').value.trim();
+                const normalize = (s) => s.toLowerCase().replace(/[.,!?]$/, '').replace(/['’]/g, "'").replace(/\s+/g, " ").trim();
+                if (normalize(val) === normalize(item.en)) { 
+                    score++; box.style.borderLeft = "6px solid var(--success)"; 
+                } else { 
+                    box.style.borderLeft = "6px solid var(--error)"; 
+                    box.innerHTML += `<div class="feedback wrong">❌ 错误。正确答案: <br><span style="color:#059669">${item.en}</span></div>`; 
+                }
+            } else {
+                const ins = box.querySelectorAll('.blank-input');
+                let allOk = true;
+                ins.forEach(i => { 
+                    if(i.value.trim().toLowerCase() !== i.dataset.ans.toLowerCase()){
+                        allOk = false;
+                        i.style.borderBottomColor = "var(--error)"; i.style.color = "var(--error)";
+                    } else {
+                        i.style.borderBottomColor = "var(--success)"; i.style.color = "var(--success)";
+                    }
+                });
+                if (allOk) { 
+                    score++; box.style.borderLeft = "6px solid var(--success)"; 
+                } else { 
+                    box.style.borderLeft = "6px solid var(--error)"; 
+                    const ansStr = Array.from(ins).map(i => i.dataset.ans).join(', ');
+                    box.innerHTML += `<div class="feedback wrong">❌ 错误。正确答案: <span style="color:#059669">${ansStr}</span></div>`; 
+                }
+            }
+        });
+        const pct = Math.round(score/items.length*100);
+        const color = pct >= 80 ? "var(--success)" : (pct >= 60 ? "#D97706" : "var(--error)");
+        document.getElementById('final-score').innerHTML = `<h2 style="color:${color}; margin:0; font-size:2em;">得分：${pct} 分</h2><p style="color:var(--text-light); font-size:1.1em;">共答对 ${score} / ${items.length} 题</p>`;
+    }
+
+    // --- 模式 5: Word 智能导入 ---
+    function renderImportPanel() {
+        let html = `
+            <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+                <h3 style="margin-top:0; color:#1E40AF;">💡 Word 沉浸式导题指南</h3>
+                <p style="margin:5px 0;">1. 在 Word 中写一行中文，回车另起一行写英文。<br>
+                2. 选中英文中需要设题的单词，按下 <code>Ctrl + U</code> 添加下划线。<br>
+                3. 将多组文本全选复制，<strong>直接粘贴到下方虚线框内</strong>。<br>
+                <em>✨ 终极形态学引擎：完美剥离虚词，支持 the greatest -> great 等高阶还原。</em></p>
+            </div>
+            
+            <div id="rich-editor" contenteditable="true" placeholder="⚡ 请在这里按下 Ctrl+V 粘贴从 Word 复制的内容..."></div>
+            
+            <div style="display:flex; gap:15px; margin-top:20px; flex-wrap:wrap;">
+                <button class="action-btn" style="background:#2563EB; flex:1;" onclick="processRichText(false)"><i class="fas fa-magic"></i> 解析并覆盖题库</button>
+                <button class="action-btn" style="background:#059669; flex:1;" onclick="processRichText(true)">➕ 解析并追加题库</button>
+                <button class="action-btn" style="background:#DC2626;" onclick="clearDatabase()">清空数据</button>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = html;
+    }
+
+    function processRichText(isAppend) {
+        const editor = document.getElementById('rich-editor');
+        if(!editor.textContent.trim()) { alert("请先粘贴内容！"); return; }
+
+        const clone = editor.cloneNode(true);
+        const uElements = clone.querySelectorAll('u, span[style*="underline"]');
+        uElements.forEach(el => { el.textContent = `[[[${el.textContent}]]]`; });
+        
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        document.body.appendChild(clone);
+        const rawText = clone.innerText || clone.textContent; 
+        document.body.removeChild(clone);
+
+        const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        let currentCn = '';
+        let newItems = [];
+        let startId = isAppend && database.length > 0 ? Math.max(...database.map(d=>d.id)) + 1 : 1;
+        
+        for (let line of lines) {
+            if (/[一-龥]/.test(line)) {
+                currentCn = line.replace(/^(中文|中|CN|cn)[:：]/, '').trim();
+            } else if (/[a-zA-Z]/.test(line) && currentCn) {
+                let enText = line.replace(/^(英文|英|EN|en)[:：]/, '').trim();
+                let pureEn = enText.replace(/\[\[\[(.*?)\]\]\]/g, "$1");
+                
+                let fillText = enText.replace(/\[\[\[(.*?)\]\]\]/g, (match, word) => {
+                    let cleanWord = word.trim();
+                    let rawLower = cleanWord.toLowerCase().replace(/[.,!?]$/, '');
+                    
+                    let isAllNoHintWords = rawLower.split(/\s+/).every(w => noHintWords.has(w));
+                    if (isAllNoHintWords) {
+                        return `{${cleanWord}}`; 
+                    } else {
+                        let base = getPhraseBaseForm(rawLower); 
+                        return `{${cleanWord}} (${base})`; 
+                    }
+                });
+                
+                if(fillText === enText) fillText = `{${pureEn}}`;
+                
+                newItems.push({ id: startId++, cn: currentCn, en: pureEn, fill: fillText });
+                currentCn = ''; 
+            }
+        }
+        
+        if(newItems.length > 0) {
+            database = isAppend ? [...database, ...newItems] : newItems;
+            // 更新本地存储名防止与旧版本缓存冲突
+            localStorage.setItem('eng_practice_v6_db', JSON.stringify(database));
+            alert(`🎉 成功解析并导入 ${newItems.length} 个句子！`);
+            switchTab('fill'); 
+        } else {
+            alert("⚠️ 未能解析到有效格式，请检查。\n格式要求：一行中文，紧跟一行英文（可加下划线）。");
+        }
+    }
+
+    function clearDatabase() {
+        if(confirm("🚨 确定要清空本地所有题库数据吗？此操作不可逆！")) {
+            database = [];
+            localStorage.removeItem('eng_practice_v6_db');
+            renderContent();
+        }
+    }
+
+    // Initialize application
+    window.onload = () => { renderContent(); };
+
+</script>
+</body>
+</html>

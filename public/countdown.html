@@ -1,0 +1,2614 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>全屏倒计时</title>
+  <style>
+    :root {
+      --app-width: clamp(78vw, 82vw, 86vw);
+      --content-gap: clamp(1.2vh, 2vh, 2.8vh);
+      --title-size: clamp(6vh, 8.4vh, 11.6vh);
+      --label-size: clamp(7.2vh, 10vh, 13.6vh);
+      --num-size: clamp(7vh, 11vw, 21vh);
+      --card-radius: clamp(1.2vh, 1.8vh, 2.8vh);
+      --soft-shadow: 0 1.2vh 3.8vh rgba(24, 42, 77, 0.15);
+      --overlay-alpha: 0;
+      --text-main: #122033;
+      --text-sub: #3f536f;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --hour: #4b78f6;
+      --minute: #27b07d;
+      --second: #e55353;
+      --quote-size: clamp(2.2vh, 2.6vw, 4.2vh);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    body {
+      position: relative;
+      background: #f5f7fa;
+    }
+
+    .bg-layer,
+    .overlay-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .bg-layer {
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      transition: background 0.45s ease, filter 0.45s ease;
+    }
+
+    .bg-light {
+      background: #f5f7fa;
+    }
+
+    .bg-blue {
+      background: linear-gradient(135deg, #d9e7ff 0%, #f0f7ff 48%, #e3f1ff 100%);
+    }
+
+    .bg-dark {
+      background: linear-gradient(145deg, #0f1728 0%, #0f213d 55%, #1a2f57 100%);
+      --text-main: #edf3ff;
+      --text-sub: #b7c8e8;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --overlay-alpha: 0.33;
+    }
+
+    .bg-dawn {
+      background: linear-gradient(135deg, #ffe4c7 0%, #ffd8dd 45%, #ffecc9 100%);
+    }
+
+    .bg-custom {
+      background-size: cover;
+      background-position: center;
+      --text-main: #edf3ff;
+      --text-sub: #c7d5ee;
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --overlay-alpha: 0.36;
+    }
+
+    .overlay-layer {
+      z-index: 1;
+      background: rgba(0, 0, 0, var(--overlay-alpha));
+      backdrop-filter: blur(clamp(0.2vh, 0.9vh, 1.5vh));
+      transition: background 0.45s ease, backdrop-filter 0.45s ease;
+    }
+
+    .app.locked {
+      filter: blur(12px) saturate(0.82);
+      pointer-events: none;
+    }
+
+    .global-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 10px;
+      z-index: 3;
+      background: rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .global-progress-bar {
+      width: 100%;
+      height: 100%;
+      transform-origin: left center;
+      transform: scaleX(1);
+      background: #10b981;
+      transition: transform 0.2s linear, background 0.26s ease;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(2vh, 3vh, 4vh) clamp(2vw, 3vw, 4vw);
+    }
+
+    .stage {
+      width: min(94vw, 175vh);
+      aspect-ratio: 16 / 9;
+      max-height: 94vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: var(--content-gap);
+      text-align: center;
+    }
+
+    .title {
+      font-size: var(--title-size);
+      color: var(--text-main);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0.05em;
+      text-wrap: balance;
+      max-width: 92%;
+      cursor: pointer;
+      transition: color 0.22s ease, text-decoration-color 0.22s ease, transform 0.22s ease;
+      text-decoration: underline;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.2em;
+      text-decoration-color: transparent;
+      position: relative;
+      top: clamp(-8vh, -6vh, -4vh);
+    }
+
+    .title:hover {
+      color: #2563eb;
+      text-decoration-color: rgba(37, 99, 235, 0.45);
+      transform: translateY(clamp(-0.2vh, -0.12vh, -0.05vh));
+    }
+
+    html[data-bg="dark"] .title,
+    html[data-bg="custom"] .title {
+      color: #eef4ff;
+      text-shadow: 0 0.6vh 1.2vh rgba(0, 0, 0, 0.42);
+    }
+
+    html[data-bg="dark"] .title:hover,
+    html[data-bg="custom"] .title:hover {
+      color: #cfe0ff;
+      text-decoration-color: rgba(207, 224, 255, 0.48);
+    }
+
+    .timer-row {
+      width: var(--app-width);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: clamp(1vw, 1.2vw, 1.8vw);
+      align-items: stretch;
+      justify-items: stretch;
+      transition: width 0.3s ease;
+    }
+
+    .timer-row.no-days {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: clamp(74vw, 80vw, 86vw);
+    }
+
+    .time-card {
+      background: var(--card-bg);
+      border-radius: var(--card-radius);
+      box-shadow: var(--soft-shadow);
+      padding: clamp(1.6vh, 2.4vh, 3.2vh) clamp(0.8vw, 1.2vw, 1.6vw);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: clamp(22vh, 34vh, 46vh);
+      transform: translateZ(0);
+      transition: transform 0.24s ease, box-shadow 0.24s ease;
+    }
+
+    .time-card:hover {
+      transform: translateY(clamp(-0.3vh, -0.18vh, -0.08vh));
+      box-shadow: 0 1.6vh 4.2vh rgba(21, 39, 69, 0.19);
+    }
+
+    .time-card.hidden {
+      display: none;
+    }
+
+    .num {
+      font-weight: 800;
+      line-height: 0.9;
+      font-size: var(--num-size);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      text-shadow: 0 0.26vh 0.45vh rgba(255, 255, 255, 0.3);
+      transition: color 0.26s ease, transform 0.26s ease, text-shadow 0.26s ease;
+    }
+
+    .time-card.hours .num {
+      color: var(--hour);
+    }
+
+    .time-card.minutes .num {
+      color: var(--minute);
+    }
+
+    .time-card.seconds .num {
+      color: var(--second);
+    }
+
+    .label {
+      margin-top: clamp(1vh, 1.25vh, 1.8vh);
+      color: var(--text-sub);
+      font-size: var(--label-size);
+      letter-spacing: 0.2em;
+      font-weight: 700;
+    }
+
+    .time-card.days .label {
+      color: var(--text-main);
+    }
+
+    .time-card.hours .label {
+      color: var(--hour);
+    }
+
+    .time-card.minutes .label {
+      color: var(--minute);
+    }
+
+    .time-card.seconds .label {
+      color: var(--second);
+    }
+
+    .time-card.seconds.warning .num {
+      color: #ff2e2e;
+      animation: pulse 1s infinite ease-in-out;
+      text-shadow: 0 0.65vh 1.2vh rgba(255, 46, 46, 0.45);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(1vw, 1.4vw, 2vw);
+      margin-top: clamp(0.4vh, 1vh, 1.6vh);
+      opacity: 1;
+      transition: opacity 0.45s ease;
+    }
+
+    .controls.idle {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .quote-wrap {
+      width: var(--app-width);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: clamp(0.4vh, 1vh, 1.6vh);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(clamp(0.3vh, 0.6vh, 1vh));
+      transition: opacity 0.72s cubic-bezier(0.22, 1, 0.36, 1), transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+      min-height: clamp(6vh, 8vh, 12vh);
+    }
+
+    .quote-wrap.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: none;
+    }
+
+    .quote {
+      max-width: 92%;
+      font-size: var(--quote-size);
+      line-height: 1.5;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: rgba(18, 32, 51, 0.84);
+      text-shadow: 0 0.35vh 0.9vh rgba(255, 255, 255, 0.28);
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      backdrop-filter: none;
+      box-shadow: none;
+      transition: opacity 0.72s cubic-bezier(0.22, 1, 0.36, 1), filter 0.32s ease;
+      opacity: 1;
+      filter: blur(0);
+      text-wrap: balance;
+      will-change: opacity, filter;
+    }
+
+    .quote.fade-out {
+      opacity: 0;
+      filter: blur(clamp(0.08vh, 0.16vh, 0.24vh));
+      transition-duration: 0.84s, 0.44s;
+    }
+
+    .quote.fade-in {
+      opacity: 1;
+      filter: blur(0);
+    }
+
+    html[data-bg="dark"] .quote,
+    html[data-bg="custom"] .quote {
+      color: rgba(237, 243, 255, 0.9);
+      text-shadow: 0 0.5vh 1.1vh rgba(0, 0, 0, 0.35);
+    }
+
+    button {
+      border: none;
+      border-radius: clamp(0.8vh, 1.1vh, 1.5vh);
+      padding: clamp(1.1vh, 1.35vh, 1.75vh) clamp(2.5vw, 3vw, 4vw);
+      font-size: clamp(1.8vh, 2.1vh, 2.7vh);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 0.65vh 1.8vh rgba(17, 35, 67, 0.18);
+      color: #fff;
+      min-width: clamp(14vw, 16vw, 20vw);
+    }
+
+    button:active {
+      transform: translateY(clamp(0.15vh, 0.22vh, 0.3vh));
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #3f82ff, #2962ff);
+    }
+
+    .btn-reset {
+      background: linear-gradient(135deg, #ff8d6b, #ff6a4d);
+    }
+
+    .btn-reset.disabled {
+      background: linear-gradient(135deg, #98a3b8, #7f8aa0);
+      cursor: not-allowed;
+      opacity: 0.9;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 20;
+      padding: clamp(0.9vh, 1.2vh, 1.6vh) clamp(1vw, 1.3vw, 1.8vw);
+      border-radius: clamp(0.8vh, 1vh, 1.4vh);
+      background: rgba(16, 25, 44, 0.94);
+      color: #fff;
+      font-size: clamp(1.4vh, 1.7vh, 2.3vh);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(clamp(0.6vh, 0.9vh, 1.2vh));
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      max-width: clamp(30vw, 36vw, 42vw);
+      text-wrap: pretty;
+    }
+
+    .tooltip.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(8, 18, 34, 0.42);
+      backdrop-filter: blur(clamp(0.4vh, 0.8vh, 1.4vh));
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(2vh, 3vh, 4vh);
+    }
+
+    .modal-mask.show {
+      display: flex;
+    }
+
+    .modal {
+      width: min(82vw, 112vh);
+      max-height: 88vh;
+      overflow: auto;
+      border-radius: clamp(1.2vh, 1.6vh, 2.2vh);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 2vh 6vh rgba(12, 24, 45, 0.27);
+      padding: clamp(2vh, 2.8vh, 3.5vh) clamp(2vw, 2.6vw, 3.4vw);
+      color: #122033;
+    }
+
+    .modal h2 {
+      font-size: clamp(2.3vh, 2.8vh, 3.4vh);
+      margin-bottom: clamp(1.2vh, 1.6vh, 2vh);
+    }
+
+    .section {
+      margin-bottom: clamp(1.2vh, 1.8vh, 2.5vh);
+    }
+
+    .section-title {
+      font-size: clamp(1.7vh, 2vh, 2.4vh);
+      font-weight: 700;
+      color: #1d355f;
+      margin-bottom: clamp(0.8vh, 1vh, 1.4vh);
+    }
+
+    .input,
+    .select,
+    .datetime {
+      width: 100%;
+      border: 0.12vh solid rgba(45, 73, 123, 0.2);
+      border-radius: clamp(0.8vh, 1vh, 1.4vh);
+      padding: clamp(1vh, 1.2vh, 1.6vh) clamp(0.8vw, 1vw, 1.4vw);
+      font-size: clamp(1.6vh, 1.9vh, 2.3vh);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: rgba(255, 255, 255, 0.95);
+    }
+
+    .input:focus,
+    .select:focus,
+    .datetime:focus {
+      border-color: #3f82ff;
+      box-shadow: 0 0 0 0.25vh rgba(63, 130, 255, 0.16);
+    }
+
+    .range {
+      width: 100%;
+      accent-color: #2f6dff;
+      height: clamp(1.6vh, 2vh, 2.4vh);
+      cursor: pointer;
+    }
+
+    .bg-options {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: clamp(0.8vw, 1vw, 1.3vw);
+    }
+
+    .bg-option {
+      height: clamp(7vh, 8vh, 10vh);
+      border-radius: clamp(0.9vh, 1.2vh, 1.6vh);
+      border: 0.18vh solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.2vh, 1.4vh, 1.8vh);
+      font-weight: 700;
+      color: #16315f;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .bg-option:hover {
+      transform: translateY(clamp(-0.3vh, -0.2vh, -0.1vh));
+    }
+
+    .bg-option.active {
+      border-color: #2f6dff;
+      box-shadow: 0 0 0 0.24vh rgba(47, 109, 255, 0.16);
+    }
+
+    .bg-option.light { background: #f5f7fa; }
+    .bg-option.blue { background: linear-gradient(135deg, #d9e7ff, #eff7ff); }
+    .bg-option.dark { background: linear-gradient(145deg, #0f1728, #26395f); color: #e7f0ff; }
+    .bg-option.dawn { background: linear-gradient(135deg, #ffe4c7, #ffd9de, #ffecc9); }
+    .bg-option.custom { background: linear-gradient(135deg, #f3f5ff, #e2ebff); }
+
+    .mode-switch {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(0.8vw, 1vw, 1.4vw);
+      margin-bottom: clamp(1vh, 1.2vh, 1.6vh);
+    }
+
+    .mode-btn {
+      border: 0.12vh solid rgba(49, 84, 146, 0.22);
+      border-radius: clamp(0.8vh, 1vh, 1.4vh);
+      background: rgba(245, 249, 255, 0.9);
+      color: #1d355f;
+      padding: clamp(1vh, 1.2vh, 1.6vh);
+      text-align: center;
+      font-size: clamp(1.5vh, 1.8vh, 2.2vh);
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .mode-btn.active {
+      border-color: #3f82ff;
+      background: rgba(63, 130, 255, 0.14);
+      color: #1543aa;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: clamp(0.8vw, 1vw, 1.3vw);
+    }
+
+    .sound-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: clamp(0.8vw, 1vw, 1.3vw);
+    }
+
+    .textarea {
+      width: 100%;
+      border: 0.12vh solid rgba(45, 73, 123, 0.2);
+      border-radius: clamp(0.8vh, 1vh, 1.4vh);
+      padding: clamp(1vh, 1.2vh, 1.6vh) clamp(0.8vw, 1vw, 1.4vw);
+      font-size: clamp(1.6vh, 1.9vh, 2.3vh);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: rgba(255, 255, 255, 0.95);
+      resize: vertical;
+      min-height: clamp(12vh, 16vh, 22vh);
+      line-height: 1.5;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .textarea:focus {
+      border-color: #3f82ff;
+      box-shadow: 0 0 0 0.25vh rgba(63, 130, 255, 0.16);
+    }
+
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: clamp(0.5vw, 0.8vw, 1vw);
+      font-size: clamp(1.5vh, 1.8vh, 2.2vh);
+      color: #21406f;
+      font-weight: 700;
+    }
+
+    .checkbox {
+      width: clamp(1.8vh, 2.2vh, 2.7vh);
+      height: clamp(1.8vh, 2.2vh, 2.7vh);
+      accent-color: #2f6dff;
+      cursor: pointer;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: clamp(0.8vw, 1vw, 1.4vw);
+      margin-top: clamp(0.8vh, 1vh, 1.4vh);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #8b9bb7, #7385a4);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3f82ff, #1d66ff);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .portrait-blocker {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: linear-gradient(145deg, #0f1d37, #213a67);
+      color: #f7fbff;
+      padding: clamp(4vh, 6vh, 8vh) clamp(6vw, 8vw, 10vw);
+      font-size: clamp(2.2vh, 3.1vh, 4.3vh);
+      line-height: 1.6;
+      letter-spacing: 0.06em;
+      text-wrap: balance;
+    }
+
+    .activation-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(3vh, 4vh, 6vh) clamp(4vw, 6vw, 8vw);
+      background: rgba(6, 13, 28, 0.6);
+      backdrop-filter: blur(15px);
+    }
+
+    .activation-mask.show {
+      display: flex;
+    }
+
+    .activation-mask.fade-out {
+      animation: activationFadeOut 0.45s ease forwards;
+    }
+
+    @keyframes activationFadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .activation-card {
+      width: min(92vw, 640px);
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(11, 23, 45, 0.35);
+      padding: clamp(2.4vh, 3.4vh, 4vh) clamp(2.2vw, 2.8vw, 3.2vw);
+      text-align: center;
+      color: #122033;
+      transform: translateY(0);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+      border: 2px solid transparent;
+    }
+
+    .activation-card.success {
+      border-color: #16a34a;
+      box-shadow: 0 22px 56px rgba(22, 163, 74, 0.3);
+      background: linear-gradient(180deg, #ffffff 0%, #ecfdf3 100%);
+    }
+
+    .activation-title {
+      font-size: clamp(2.4vh, 3.4vh, 4vh);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .activation-input {
+      width: 100%;
+      margin-top: clamp(1.8vh, 2.3vh, 2.8vh);
+      height: clamp(6vh, 7.2vh, 8vh);
+      border-radius: 12px;
+      border: 2px solid #cdd6e4;
+      text-align: center;
+      font-size: clamp(2.2vh, 2.8vh, 3.2vh);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #0f2446;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .activation-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+    }
+
+    .activation-input.invalid {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.14);
+      animation: activationShake 0.28s linear 1;
+    }
+
+    @keyframes activationShake {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(7px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(5px); }
+      100% { transform: translateX(0); }
+    }
+
+    .activation-btn {
+      width: 100%;
+      margin-top: clamp(1.6vh, 2vh, 2.4vh);
+      height: clamp(5.6vh, 6.4vh, 7.2vh);
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      font-size: clamp(2.1vh, 2.6vh, 3vh);
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+
+    .activation-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.28);
+    }
+
+    .activation-btn:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.2);
+      opacity: 0.88;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .activation-buy-btn {
+      width: 100%;
+      margin-top: clamp(1vh, 1.4vh, 1.8vh);
+      height: clamp(5vh, 5.8vh, 6.6vh);
+      border: 2px solid #2563eb;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #2563eb;
+      font-size: clamp(1.9vh, 2.3vh, 2.6vh);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+
+    .activation-buy-btn:hover {
+      background: #2563eb;
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .activation-dialog {
+      margin-top: clamp(1vh, 1.4vh, 1.8vh);
+      padding: clamp(1.2vh, 1.6vh, 2vh) clamp(1vw, 1.4vw, 1.8vw);
+      border-radius: 12px;
+      border: 2px solid #f59e0b;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: clamp(1.7vh, 2vh, 2.2vh);
+      line-height: 1.45;
+      display: none;
+    }
+
+    .activation-dialog.show {
+      display: block;
+    }
+
+    @media (orientation: portrait) {
+      .app,
+      .modal-mask {
+        display: none !important;
+      }
+      .portrait-blocker {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="bgLayer" class="bg-layer bg-light"></div>
+  <div id="overlayLayer" class="overlay-layer"></div>
+  <div id="globalProgress" class="global-progress"><div id="globalProgressBar" class="global-progress-bar"></div></div>
+
+  <div class="app" id="appRoot">
+    <main class="stage">
+      <h1 id="mainTitle" class="title">距离考试还有</h1>
+
+      <section id="timerRow" class="timer-row">
+        <article id="dayCard" class="time-card days">
+          <div id="dayNum" class="num">00</div>
+          <div class="label">天</div>
+        </article>
+        <article class="time-card hours">
+          <div id="hourNum" class="num">00</div>
+          <div class="label">时</div>
+        </article>
+        <article class="time-card minutes">
+          <div id="minuteNum" class="num">00</div>
+          <div class="label">分</div>
+        </article>
+        <article id="secondCard" class="time-card seconds">
+          <div id="secondNum" class="num">00</div>
+          <div class="label">秒</div>
+        </article>
+      </section>
+
+      <section id="controls" class="controls">
+        <button id="startPauseBtn" class="btn-start" type="button">开始</button>
+        <button id="resetBtn" class="btn-reset" type="button">重置</button>
+      </section>
+
+      <section id="quoteWrap" class="quote-wrap" aria-live="polite">
+        <p id="quoteText" class="quote"></p>
+      </section>
+    </main>
+  </div>
+
+  <div id="tip" class="tooltip">截止时间模式下无法重置，请双击上方标题重新设置</div>
+
+  <div id="modalMask" class="modal-mask" role="dialog" aria-modal="true" aria-label="设置弹窗">
+    <div class="modal">
+      <h2>倒计时设置</h2>
+
+      <section class="section">
+        <div class="section-title">主标题文案</div>
+        <input id="titleInput" class="input" type="text" maxlength="50" placeholder="例如：距离2026年高考还有" />
+      </section>
+
+      <section class="section">
+        <div class="section-title">背景设置</div>
+        <div id="bgOptions" class="bg-options">
+          <button class="bg-option light" data-bg="light" type="button">经典浅灰</button>
+          <button class="bg-option blue" data-bg="blue" type="button">宁静蓝</button>
+          <button class="bg-option dark" data-bg="dark" type="button">暗夜黑</button>
+          <button class="bg-option dawn" data-bg="dawn" type="button">晨曦暖</button>
+          <button class="bg-option custom" data-bg="custom" type="button">📷 上传</button>
+        </div>
+        <input id="bgUploader" type="file" accept="image/*" class="hidden" />
+      </section>
+
+      <section class="section">
+        <div class="section-title">倒计时模式</div>
+        <div class="mode-switch">
+          <button id="modeDurationBtn" class="mode-btn active" data-mode="duration" type="button">模式A：总时长</button>
+          <button id="modeDeadlineBtn" class="mode-btn" data-mode="deadline" type="button">模式B：截止时间</button>
+        </div>
+        <div id="durationPanel" class="row">
+          <input id="durationValue" class="input" type="number" min="1" value="120" />
+          <select id="durationUnit" class="select">
+            <option value="minute">分钟</option>
+            <option value="hour">小时</option>
+            <option value="second">秒</option>
+          </select>
+        </div>
+        <div id="deadlinePanel" class="hidden">
+          <input id="deadlineInput" class="datetime" type="datetime-local" />
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">音效设置</div>
+        <div class="sound-row">
+          <label class="checkbox-wrap">
+            <input id="soundEnabled" class="checkbox" type="checkbox" checked />
+            启用每秒提示音
+          </label>
+          <select id="soundType" class="select"></select>
+        </div>
+        <div class="sound-row" style="margin-top: clamp(0.8vh, 1vh, 1.4vh);">
+          <label class="checkbox-wrap">
+            <input id="whiteNoiseEnabled" class="checkbox" type="checkbox" />
+            播放白噪音
+          </label>
+          <input id="whiteNoiseLevel" class="range" type="range" min="5" max="100" step="1" />
+        </div>
+        <div class="sound-row" style="margin-top: clamp(0.8vh, 1vh, 1.4vh);">
+          <label class="checkbox-wrap">白噪音类型</label>
+          <select id="whiteNoiseType" class="select"></select>
+        </div>
+        <div class="sound-row" style="margin-top: clamp(0.8vh, 1vh, 1.4vh);">
+          <label class="checkbox-wrap">类型强度</label>
+          <input id="whiteNoiseTexture" class="range" type="range" min="10" max="100" step="1" />
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">鼓励语设置（每行一句）</div>
+        <textarea
+          id="encourageInput"
+          class="textarea"
+          placeholder="每行输入一句鼓励语，例如：沉着冷静，逢考必胜！"
+        ></textarea>
+      </section>
+
+      <div class="modal-actions">
+        <button id="cancelBtn" class="btn-secondary" type="button">取消</button>
+        <button id="saveBtn" class="btn-primary" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="activationMask" class="activation-mask">
+    <div id="activationCard" class="activation-card">
+      <h2 class="activation-title">软件激活 (Software Activation)</h2>
+      <input id="activationInput" class="activation-input" type="text" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" />
+      <button id="activationBtn" class="activation-btn" type="button">立即激活</button>
+      <button id="buyActivationBtn" class="activation-buy-btn" type="button">购买激活码</button>
+      <div id="activationDialog" class="activation-dialog" role="alert"></div>
+    </div>
+  </div>
+
+  <div class="portrait-blocker">请将设备横屏或使用大屏显示器观看以获得最佳体验</div>
+
+  <script>
+    /**
+     * 全局常量与默认配置：
+     * - STORAGE_KEY：本地持久化键名。
+     * - END_TITLE：倒计时结束后强制显示的顶部提示文案。
+     * - DEFAULT_STATE：默认的初始化配置，首次访问或数据损坏时回退到该对象。
+     */
+    const STORAGE_KEY = "exam_fullscreen_countdown_v1";
+    const ACTIVATION_STORAGE_KEY = "exam_fullscreen_activation_v1";
+    const VALID_KEY_HASHES = [
+      "42c9845b60b4ff73048c98a6952b43aa193c503b2e448c6184e2c3d47ab25d8b",
+      "8250230e053fdb8d96a1112e44b542eabdc73d472f99acc4512827ea69ac752f",
+      "f5d94922b361c74b18964c73c8b757bcf97592688d8d691cc75f537cd27c6a00",
+      "bb143ae7ff8ff1ad1e927722b6238ca852e08f6efb31d18c02bcdfa96db2e1a9",
+      "bb7cafedb6483dd3ddf13c9063511e38b69c01df80682d985e5857ea43a4d447",
+      "f556fda1391223f26442c18a0de196275ec1416acf7f99cdd69a4b98c8feb422",
+      "c643da8207e746a29b19f67d05d034db205af68e5f341212d6bac4ef155165ea",
+      "7c7b8fa6a0ad78482fab0b31a283ed13c1db99ddb2ca267a14da0275576a210c",
+      "e18766f0739fa7188199e818f6881fa1f0ab546839771a2a6914ba5a52d09085",
+      "42608a8fe7ef32e5f4a47bb3af4e8e4c0e59664fabb935a58ee9a4d09c35dd67"
+    ];
+    const ACTIVATION_PATTERN = /^[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}$/;
+    const END_TITLE = "倒计时结束";
+    const DEFAULT_QUOTES = [
+      "沉着冷静，逢考必胜！",
+      "细节决定成败，拼搏铸就辉煌",
+      "心如止水，下笔有神"
+    ];
+    const DEFAULT_STATE = {
+      title: "距离考试还有",
+      bgType: "light",
+      bgImage: "",
+      mode: "duration",
+      durationValue: 120,
+      durationUnit: "minute",
+      deadline: "",
+      soundEnabled: true,
+      soundType: "beep",
+      whiteNoiseEnabled: false,
+      whiteNoiseLevel: 35,
+      whiteNoiseType: "white",
+      whiteNoiseTexture: 58,
+      encouragements: [...DEFAULT_QUOTES]
+    };
+
+    /**
+     * 声音列表：
+     * - key：内部唯一标识。
+     * - label：界面上展示给用户的中文名称。
+     */
+    const SOUND_LIST = [
+      { key: "beep", label: "标准电子滴答" },
+      { key: "wood", label: "木质敲击" },
+      { key: "softBell", label: "柔和钟铃" },
+      { key: "digital", label: "数字蜂鸣" },
+      { key: "pluck", label: "短促拨弦" },
+      { key: "click", label: "轻脆点击" },
+      { key: "sinePop", label: "圆润脉冲" },
+      { key: "hiHat", label: "高频沙锤" },
+      { key: "pulse", label: "低频脉动" },
+      { key: "glass", label: "玻璃叮咚" }
+    ];
+    const WHITE_NOISE_TYPE_LIST = [
+      { key: "white", label: "标准白噪音" },
+      { key: "pink", label: "粉噪" },
+      { key: "rain", label: "雨声感" },
+      { key: "wind", label: "风声感" },
+      { key: "classroom", label: "教室写字翻书" }
+    ];
+    const WHITE_NOISE_TYPE_SET = new Set(WHITE_NOISE_TYPE_LIST.map((item) => item.key));
+
+    /**
+     * 运行时状态：
+     * - config：用户设置项，持久化到 localStorage。
+     * - isRunning：当前是否处于运行中。
+     * - isFinished：当前倒计时是否已结束。
+     * - remainingMs：仅模式A有效，记录剩余毫秒数。
+     * - frozenMs：模式B暂停时冻结显示值。
+     * - targetTimestamp：运行中用于计算剩余时间的目标时间戳。
+     * - timerId：页面刷新计时器句柄。
+     * - audioUnlocked：音频上下文是否已被用户手势解锁。
+     * - pendingFinalAlarm：结束时长音是否等待解锁后补播。
+     */
+    const runtime = {
+      config: { ...DEFAULT_STATE },
+      isRunning: false,
+      isFinished: false,
+      remainingMs: 0,
+      frozenMs: 0,
+      targetTimestamp: 0,
+      timerId: 0,
+      lastSecondStamp: "",
+      audioCtx: null,
+      masterGain: null,
+      noiseBuffer: null,
+      whiteNoiseBuffers: {},
+      whiteNoiseSource: null,
+      whiteNoiseGain: null,
+      whiteNoiseFilter: null,
+      whiteNoiseStopTimer: 0,
+      whiteNoiseTypeInUse: "",
+      whiteNoiseBufferKeyInUse: "",
+      audioUnlocked: false,
+      pendingFinalAlarm: false
+    };
+
+    /**
+     * DOM 快速引用集合，避免重复 querySelector，便于维护与性能优化。
+     */
+    const dom = {
+      appRoot: document.getElementById("appRoot"),
+      bgLayer: document.getElementById("bgLayer"),
+      overlayLayer: document.getElementById("overlayLayer"),
+      mainTitle: document.getElementById("mainTitle"),
+      timerRow: document.getElementById("timerRow"),
+      dayCard: document.getElementById("dayCard"),
+      dayNum: document.getElementById("dayNum"),
+      hourNum: document.getElementById("hourNum"),
+      minuteNum: document.getElementById("minuteNum"),
+      secondNum: document.getElementById("secondNum"),
+      secondCard: document.getElementById("secondCard"),
+      controls: document.getElementById("controls"),
+      quoteWrap: document.getElementById("quoteWrap"),
+      quoteText: document.getElementById("quoteText"),
+      startPauseBtn: document.getElementById("startPauseBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      tip: document.getElementById("tip"),
+      modalMask: document.getElementById("modalMask"),
+      titleInput: document.getElementById("titleInput"),
+      bgOptions: document.getElementById("bgOptions"),
+      bgUploader: document.getElementById("bgUploader"),
+      modeDurationBtn: document.getElementById("modeDurationBtn"),
+      modeDeadlineBtn: document.getElementById("modeDeadlineBtn"),
+      durationPanel: document.getElementById("durationPanel"),
+      deadlinePanel: document.getElementById("deadlinePanel"),
+      durationValue: document.getElementById("durationValue"),
+      durationUnit: document.getElementById("durationUnit"),
+      deadlineInput: document.getElementById("deadlineInput"),
+      soundEnabled: document.getElementById("soundEnabled"),
+      soundType: document.getElementById("soundType"),
+      whiteNoiseEnabled: document.getElementById("whiteNoiseEnabled"),
+      whiteNoiseLevel: document.getElementById("whiteNoiseLevel"),
+      whiteNoiseType: document.getElementById("whiteNoiseType"),
+      whiteNoiseTexture: document.getElementById("whiteNoiseTexture"),
+      encourageInput: document.getElementById("encourageInput"),
+      cancelBtn: document.getElementById("cancelBtn"),
+      saveBtn: document.getElementById("saveBtn"),
+      globalProgress: document.getElementById("globalProgress"),
+      globalProgressBar: document.getElementById("globalProgressBar"),
+      activationMask: document.getElementById("activationMask"),
+      activationCard: document.getElementById("activationCard"),
+      activationInput: document.getElementById("activationInput"),
+      activationBtn: document.getElementById("activationBtn"),
+      buyActivationBtn: document.getElementById("buyActivationBtn"),
+      activationDialog: document.getElementById("activationDialog")
+    };
+
+    /**
+     * 当前弹窗编辑草稿：
+     * - 打开弹窗时从 runtime.config 拷贝。
+     * - 点击保存时写回 runtime.config 并持久化。
+     */
+    let draft = { ...DEFAULT_STATE };
+    let idleTimer = 0;
+    let quoteTimer = 0;
+    let quoteSwitchTimer = 0;
+    let wakeLockHandle = null;
+    let deadlineStartTotalMs = 0;
+    let beforeUnloadArmed = false;
+    let lastEnterStamp = 0;
+    let appBootstrapped = false;
+    const validKeyHashSet = new Set(VALID_KEY_HASHES.map((hash) => String(hash).toLowerCase()));
+
+    /**
+     * 工具函数：将时长输入（值 + 单位）转换为毫秒。
+     */
+    function durationToMs(value, unit) {
+      const safeValue = Math.max(1, Number(value) || 1);
+      if (unit === "hour") return safeValue * 60 * 60 * 1000;
+      if (unit === "second") return safeValue * 1000;
+      return safeValue * 60 * 1000;
+    }
+
+    /**
+     * 工具函数：把毫秒拆分为天、时、分、秒，并保证最小值不低于0。
+     */
+    function splitTime(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const days = Math.floor(total / 86400);
+      const hours = Math.floor((total % 86400) / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const seconds = total % 60;
+      return { days, hours, minutes, seconds, totalSeconds: total };
+    }
+
+    /**
+     * 工具函数：统一两位补零显示（例如 3 -> 03）。
+     */
+    function pad2(num) {
+      return String(num).padStart(2, "0");
+    }
+
+    function formatActivationKey(value) {
+      const cleaned = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 25);
+      const chunks = [];
+      for (let i = 0; i < cleaned.length; i += 5) chunks.push(cleaned.slice(i, i + 5));
+      return chunks.join("-");
+    }
+
+    function getActivationRecord() {
+      try {
+        const raw = localStorage.getItem(ACTIVATION_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.activated !== true) return null;
+        if (!Number.isFinite(parsed.activationTime) || parsed.activationTime <= 0) return null;
+        return parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function setActivated() {
+      localStorage.setItem(ACTIVATION_STORAGE_KEY, JSON.stringify({ activated: true, activationTime: Date.now() }));
+    }
+
+    function lockApp() {
+      dom.appRoot.classList.add("locked");
+    }
+
+    function unlockApp() {
+      dom.appRoot.classList.remove("locked");
+    }
+
+    function resetActivationFeedback() {
+      dom.activationInput.classList.remove("invalid");
+    }
+
+    function showActivationError() {
+      dom.activationInput.classList.remove("invalid");
+      void dom.activationInput.offsetWidth;
+      dom.activationInput.classList.add("invalid");
+    }
+
+    function showActivationDialog(html) {
+      dom.activationDialog.innerHTML = html;
+      dom.activationDialog.classList.add("show");
+    }
+
+    function hideActivationDialog() {
+      dom.activationDialog.classList.remove("show");
+      dom.activationDialog.innerHTML = "";
+    }
+
+    async function sha256Hex(text) {
+      const bytes = new TextEncoder().encode(text);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function bootstrapApp() {
+      if (appBootstrapped) return;
+      appBootstrapped = true;
+      bindEvents();
+      init();
+    }
+
+    function closeActivationMask() {
+      dom.activationMask.classList.add("fade-out");
+      window.setTimeout(() => {
+        dom.activationMask.classList.remove("show");
+        dom.activationMask.classList.remove("fade-out");
+      }, 460);
+    }
+
+    async function submitActivation() {
+      const formatted = formatActivationKey(dom.activationInput.value);
+      dom.activationInput.value = formatted;
+      hideActivationDialog();
+      resetActivationFeedback();
+      if (!formatted) {
+        showActivationError();
+        showActivationDialog("请先输入正确激活码。");
+        return;
+      }
+      if (!ACTIVATION_PATTERN.test(formatted)) {
+        showActivationError();
+        showActivationDialog("请输入正确激活码。");
+        return;
+      }
+      dom.activationBtn.disabled = true;
+      const fallbackText = dom.activationBtn.textContent;
+      dom.activationBtn.textContent = "验证中...";
+      try {
+        const hash = await sha256Hex(formatted);
+        if (!validKeyHashSet.has(hash.toLowerCase())) {
+          showActivationError();
+          showActivationDialog("请输入正确激活码。");
+          dom.activationBtn.textContent = fallbackText;
+          dom.activationBtn.disabled = false;
+          return;
+        }
+        setActivated();
+        dom.activationCard.classList.add("success");
+        dom.activationBtn.textContent = "激活成功！";
+        unlockApp();
+        window.setTimeout(() => {
+          closeActivationMask();
+          bootstrapApp();
+        }, 1000);
+      } catch (_) {
+        showActivationError();
+        showActivationDialog("请输入正确激活码。");
+        dom.activationBtn.textContent = fallbackText;
+        dom.activationBtn.disabled = false;
+      }
+    }
+
+    function bindActivation() {
+      dom.activationInput.addEventListener("input", () => {
+        dom.activationInput.value = formatActivationKey(dom.activationInput.value);
+        hideActivationDialog();
+        resetActivationFeedback();
+      });
+      dom.activationInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitActivation();
+        }
+      });
+      dom.activationBtn.addEventListener("click", submitActivation);
+      dom.buyActivationBtn.addEventListener("click", () => {
+        showActivationDialog("请添加微信 <strong>immsxs</strong> 购买激活码。");
+      });
+    }
+
+    /**
+     * 本地加载配置：
+     * - 读取 localStorage。
+     * - 做结构合并，保证新增字段也有默认值。
+     * - 数据异常时安全降级为默认配置。
+     */
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { ...DEFAULT_STATE };
+        const parsed = JSON.parse(raw);
+        return {
+          ...DEFAULT_STATE,
+          ...parsed,
+          whiteNoiseEnabled: !!parsed?.whiteNoiseEnabled,
+          whiteNoiseLevel: Math.max(5, Math.min(100, Number(parsed?.whiteNoiseLevel) || DEFAULT_STATE.whiteNoiseLevel)),
+          whiteNoiseType: WHITE_NOISE_TYPE_SET.has(parsed?.whiteNoiseType) ? parsed.whiteNoiseType : DEFAULT_STATE.whiteNoiseType,
+          whiteNoiseTexture: Math.max(10, Math.min(100, Number(parsed?.whiteNoiseTexture) || DEFAULT_STATE.whiteNoiseTexture)),
+          encouragements: Array.isArray(parsed?.encouragements) && parsed.encouragements.length
+            ? parsed.encouragements.map((s) => String(s).trim()).filter(Boolean)
+            : [...DEFAULT_QUOTES]
+        };
+      } catch (_) {
+        return { ...DEFAULT_STATE };
+      }
+    }
+
+    /**
+     * 本地保存配置：
+     * - 只保存 config，不保存运行状态，确保刷新生命周期符合题目要求。
+     */
+    function saveConfig() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(runtime.config));
+    }
+
+    /**
+     * 应用背景：
+     * - 内置背景通过类名切换。
+     * - 自定义背景通过 backgroundImage 设置。
+     * - 暗色与自定义图自动启用更强遮罩，保证数字可读性。
+     */
+    function applyBackground() {
+      const { bgType, bgImage } = runtime.config;
+      dom.bgLayer.className = "bg-layer";
+      dom.bgLayer.style.backgroundImage = "";
+      document.documentElement.setAttribute("data-bg", bgType);
+      if (bgType === "custom" && bgImage) {
+        dom.bgLayer.classList.add("bg-custom");
+        dom.bgLayer.style.backgroundImage = `url("${bgImage}")`;
+      } else {
+        dom.bgLayer.classList.add(`bg-${bgType}`);
+      }
+
+      const isDarkLike = bgType === "dark" || (bgType === "custom" && !!bgImage);
+      document.documentElement.style.setProperty("--overlay-alpha", isDarkLike ? "0.34" : "0.05");
+    }
+
+    /**
+     * 背景即时预览（仅用于设置弹窗内点击切换时预览）：
+     * - 不改动 runtime.config 与 localStorage。
+     * - 关闭弹窗（取消/点击遮罩/保存后关闭）时会恢复为真实配置背景。
+     */
+    function applyBackgroundPreview(bgType, bgImage) {
+      dom.bgLayer.className = "bg-layer";
+      dom.bgLayer.style.backgroundImage = "";
+      document.documentElement.setAttribute("data-bg", bgType);
+      if (bgType === "custom" && bgImage) {
+        dom.bgLayer.classList.add("bg-custom");
+        dom.bgLayer.style.backgroundImage = `url("${bgImage}")`;
+      } else {
+        dom.bgLayer.classList.add(`bg-${bgType}`);
+      }
+      const isDarkLike = bgType === "dark" || (bgType === "custom" && !!bgImage);
+      document.documentElement.style.setProperty("--overlay-alpha", isDarkLike ? "0.34" : "0.05");
+    }
+
+    /**
+     * 应用顶部标题：
+     * - 正常状态显示用户自定义文案。
+     * - 结束状态强制显示“考试结束，请停止答题”。
+     */
+    function applyTitle() {
+      dom.mainTitle.textContent = runtime.isFinished ? END_TITLE : runtime.config.title;
+    }
+
+    /**
+     * 根据模式刷新重置按钮状态：
+     * - 模式A可重置。
+     * - 模式B禁用并置灰。
+     */
+    function updateResetButtonState() {
+      const disabled = runtime.config.mode === "deadline";
+      dom.resetBtn.classList.toggle("disabled", disabled);
+      dom.resetBtn.setAttribute("aria-disabled", String(disabled));
+    }
+
+    /**
+     * 刷新开始/暂停按钮文案。
+     */
+    function updateStartButtonText() {
+      dom.startPauseBtn.textContent = runtime.isRunning ? "暂停" : "开始";
+    }
+
+    /**
+     * 刷新倒计时卡片显示：
+     * - 天数为0时隐藏天卡片，自动切换为3列布局。
+     * - 最后10秒触发秒卡片红色脉冲预警。
+     */
+    function renderTime(ms) {
+      const t = splitTime(ms);
+
+      dom.dayNum.textContent = pad2(t.days);
+      dom.hourNum.textContent = pad2(t.hours);
+      dom.minuteNum.textContent = pad2(t.minutes);
+      dom.secondNum.textContent = pad2(t.seconds);
+
+      const hasDays = t.days > 0;
+      dom.dayCard.classList.toggle("hidden", !hasDays);
+      dom.timerRow.classList.toggle("no-days", !hasDays);
+
+      const warning = t.totalSeconds <= 10 && t.totalSeconds > 0 && runtime.isRunning;
+      dom.secondCard.classList.toggle("warning", warning);
+    }
+
+    /**
+     * 统一获取“当前应显示剩余时间（毫秒）”：
+     * - 模式A：运行中用目标时间戳减当前时间，暂停时读取 remainingMs。
+     * - 模式B：运行中用 deadline 减当前时间，暂停时读取 frozenMs。
+     */
+    function getCurrentRemainingMs() {
+      if (runtime.config.mode === "duration") {
+        if (runtime.isRunning) return Math.max(0, runtime.targetTimestamp - Date.now());
+        return Math.max(0, runtime.remainingMs);
+      }
+      if (runtime.isRunning) return Math.max(0, runtime.targetTimestamp - Date.now());
+      return Math.max(0, runtime.frozenMs);
+    }
+
+    function updateBeforeUnloadGuard() {
+      const left = getCurrentRemainingMs();
+      const shouldArm = runtime.isRunning && left > 0;
+      if (shouldArm === beforeUnloadArmed) return;
+      beforeUnloadArmed = shouldArm;
+      if (beforeUnloadArmed) {
+        window.onbeforeunload = (e) => {
+          e.preventDefault();
+          e.returnValue = "考试正在进行中，离开可能中断倒计时。";
+          return "考试正在进行中，离开可能中断倒计时。";
+        };
+      } else {
+        window.onbeforeunload = null;
+      }
+    }
+
+    async function ensureWakeLock() {
+      if (!runtime.isRunning || runtime.isFinished) return;
+      if (!("wakeLock" in navigator) || !navigator.wakeLock?.request) return;
+      if (wakeLockHandle) return;
+      try {
+        wakeLockHandle = await navigator.wakeLock.request("screen");
+        wakeLockHandle.addEventListener?.("release", () => {
+          wakeLockHandle = null;
+        });
+      } catch (_) {
+        wakeLockHandle = null;
+      }
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLockHandle) return;
+      try {
+        await wakeLockHandle.release();
+      } catch (_) {}
+      wakeLockHandle = null;
+    }
+
+    function updateProgressBar() {
+      const left = getCurrentRemainingMs();
+      let total = 0;
+      if (runtime.config.mode === "duration") {
+        total = durationToMs(runtime.config.durationValue, runtime.config.durationUnit);
+      } else {
+        total = Math.max(0, deadlineStartTotalMs);
+      }
+      const ratio = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;
+      dom.globalProgressBar.style.transform = `scaleX(${ratio})`;
+      const pct = ratio * 100;
+      if (pct > 50) dom.globalProgressBar.style.background = "#10b981";
+      else if (pct > 20) dom.globalProgressBar.style.background = "#f59e0b";
+      else dom.globalProgressBar.style.background = "#ef4444";
+    }
+
+    function shouldIgnoreHotkeys(target) {
+      if (!target) return false;
+      const tag = target.tagName ? target.tagName.toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select" || tag === "button") return true;
+      if (target.isContentEditable) return true;
+      return false;
+    }
+
+    /**
+     * 音频初始化：
+     * - 延迟创建 AudioContext，避免无交互时触发浏览器限制。
+     * - 创建主音量节点与白噪声缓存（用于部分音色合成）。
+     */
+    function ensureAudio() {
+      if (runtime.audioCtx) return;
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return;
+      const ctx = new AudioCtor();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.3;
+      gain.connect(ctx.destination);
+
+      runtime.audioCtx = ctx;
+      runtime.masterGain = gain;
+      runtime.noiseBuffer = createNoiseBuffer(ctx);
+    }
+
+    /**
+     * 生成白噪声缓存：
+     * - 作为 hiHat 等音色的噪声源输入。
+     */
+    function createNoiseBuffer(ctx) {
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      return buffer;
+    }
+
+    function createWhiteNoiseBufferByType(ctx, type, texture = DEFAULT_STATE.whiteNoiseTexture) {
+      const intensity = Math.max(10, Math.min(100, Number(texture) || DEFAULT_STATE.whiteNoiseTexture)) / 100;
+      const length = Math.floor(ctx.sampleRate * 6);
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      if (type === "pink") {
+        let b0 = 0;
+        let b1 = 0;
+        let b2 = 0;
+        let b3 = 0;
+        let b4 = 0;
+        let b5 = 0;
+        let b6 = 0;
+        for (let i = 0; i < data.length; i += 1) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.969 * b2 + white * 0.153852;
+          b3 = 0.8665 * b3 + white * 0.3104856;
+          b4 = 0.55 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.016898;
+          const pink = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+          b6 = white * 0.115926;
+          data[i] = Math.max(-1, Math.min(1, pink * (0.11 + intensity * 0.14)));
+        }
+        return buffer;
+      }
+      if (type === "rain") {
+        let droplet = 0;
+        let lp = 0;
+        for (let i = 0; i < data.length; i += 1) {
+          if (Math.random() < 0.0016 + intensity * 0.0042) {
+            droplet = 0.28 + Math.random() * (0.44 + intensity * 0.46);
+          }
+          droplet *= 0.991 - intensity * 0.01;
+          const white = Math.random() * 2 - 1;
+          lp += (white - lp) * (0.12 + intensity * 0.2);
+          const sample = lp * (0.11 + intensity * 0.12) + (Math.random() * 2 - 1) * droplet * (0.22 + intensity * 0.28);
+          data[i] = Math.max(-1, Math.min(1, sample));
+        }
+        return buffer;
+      }
+      if (type === "wind") {
+        let lp = 0;
+        let gust = 0;
+        let gustTarget = 0.2 + intensity * 0.25;
+        for (let i = 0; i < data.length; i += 1) {
+          if (Math.random() < 0.00025 + intensity * 0.0006) gustTarget = 0.18 + Math.random() * (0.45 + intensity * 0.5);
+          gust += (gustTarget - gust) * (0.0005 + intensity * 0.0012);
+          const white = Math.random() * 2 - 1;
+          lp += (white - lp) * (0.006 + intensity * 0.016 + gust * 0.015);
+          const tone = Math.sin(i / ctx.sampleRate * Math.PI * 2 * (0.1 + intensity * 0.18)) * (0.012 + intensity * 0.034);
+          data[i] = Math.max(-1, Math.min(1, lp * (0.2 + intensity * 0.28 + gust * 0.48) + tone));
+        }
+        return buffer;
+      }
+      if (type === "classroom") {
+        let scratch = 0;
+        let flip = 0;
+        for (let i = 0; i < data.length; i += 1) {
+          if (Math.random() < 0.0009 + intensity * 0.0022) scratch = 0.12 + Math.random() * (0.22 + intensity * 0.3);
+          if (Math.random() < 0.00004 + intensity * 0.00016) flip = 0.3 + Math.random() * (0.22 + intensity * 0.45);
+          scratch *= 0.995 - intensity * 0.004;
+          flip *= 0.9988 - intensity * 0.0022;
+          const bed = (Math.random() * 2 - 1) * (0.012 + intensity * 0.03);
+          const pen = (Math.random() * 2 - 1) * scratch * (0.45 + Math.random() * 0.55);
+          const page = (Math.random() * 2 - 1) * flip * (0.1 + intensity * 0.2);
+          data[i] = Math.max(-1, Math.min(1, bed + pen + page));
+        }
+        return buffer;
+      }
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * (0.55 + intensity * 0.45);
+      }
+      return buffer;
+    }
+
+    function getWhiteNoiseTypeProfile(type, texture = DEFAULT_STATE.whiteNoiseTexture) {
+      const t = (Math.max(10, Math.min(100, Number(texture) || DEFAULT_STATE.whiteNoiseTexture)) - 10) / 90;
+      if (type === "pink") return { lowpassHz: 900 + t * 1800 };
+      if (type === "rain") return { lowpassHz: 4500 + t * 5000 };
+      if (type === "wind") return { lowpassHz: 500 + t * 1400 };
+      if (type === "classroom") return { lowpassHz: 2600 + t * 2800 };
+      return { lowpassHz: 1800 + t * 5200 };
+    }
+
+    function getWhiteNoiseLoopBuffer(type, texture = DEFAULT_STATE.whiteNoiseTexture) {
+      ensureAudio();
+      const ctx = runtime.audioCtx;
+      if (!ctx) return null;
+      const bucket = Math.max(10, Math.min(100, Math.round((Number(texture) || DEFAULT_STATE.whiteNoiseTexture) / 5) * 5));
+      const key = `${type}:${bucket}`;
+      if (!runtime.whiteNoiseBuffers[key]) {
+        runtime.whiteNoiseBuffers[key] = createWhiteNoiseBufferByType(ctx, type, bucket);
+      }
+      return { key, buffer: runtime.whiteNoiseBuffers[key] };
+    }
+
+    /**
+     * 解锁音频：
+     * - 首次用户手势时 resume AudioContext。
+     * - 若结束长音待补播，则在解锁后立即播放一次。
+     */
+    async function unlockAudio() {
+      ensureAudio();
+      if (!runtime.audioCtx) return;
+      try {
+        if (runtime.audioCtx.state !== "running") {
+          await runtime.audioCtx.resume();
+        }
+        runtime.audioUnlocked = true;
+        syncWhiteNoise();
+        if (runtime.pendingFinalAlarm) {
+          runtime.pendingFinalAlarm = false;
+          playFinalAlarm();
+        }
+      } catch (_) {}
+    }
+
+    /**
+     * 声音合成辅助：快速创建一次短音包络。
+     */
+    function envelope(gainNode, now, attack, decay, peak, tail = 0.001) {
+      gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setValueAtTime(tail, now);
+      gainNode.gain.linearRampToValueAtTime(peak, now + attack);
+      gainNode.gain.exponentialRampToValueAtTime(tail, now + attack + decay);
+    }
+
+    /**
+     * 每秒提示音：由 10 种纯代码合成音色组成。
+     * - 只有运行中且启用音效时才触发。
+     * - 若音频上下文未解锁则静默跳过。
+     */
+    function playTickSound() {
+      if (!runtime.config.soundEnabled || !runtime.isRunning) return;
+      ensureAudio();
+      const ctx = runtime.audioCtx;
+      if (!ctx || ctx.state !== "running") return;
+      const now = ctx.currentTime;
+
+      const g = ctx.createGain();
+      g.connect(runtime.masterGain);
+
+      const o1 = ctx.createOscillator();
+      o1.connect(g);
+
+      switch (runtime.config.soundType) {
+        case "beep": {
+          o1.type = "sine";
+          o1.frequency.setValueAtTime(860, now);
+          envelope(g, now, 0.005, 0.09, 0.19);
+          o1.start(now);
+          o1.stop(now + 0.12);
+          break;
+        }
+        case "wood": {
+          o1.type = "triangle";
+          o1.frequency.setValueAtTime(240, now);
+          o1.frequency.exponentialRampToValueAtTime(110, now + 0.1);
+          envelope(g, now, 0.001, 0.14, 0.25);
+          o1.start(now);
+          o1.stop(now + 0.15);
+          break;
+        }
+        case "softBell": {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o1.type = "sine";
+          o2.type = "sine";
+          o1.frequency.setValueAtTime(880, now);
+          o2.frequency.setValueAtTime(1320, now);
+          o1.connect(g);
+          o2.connect(g2);
+          g2.connect(runtime.masterGain);
+          envelope(g, now, 0.005, 0.22, 0.12);
+          envelope(g2, now, 0.005, 0.25, 0.07);
+          o1.start(now);
+          o2.start(now);
+          o1.stop(now + 0.28);
+          o2.stop(now + 0.3);
+          break;
+        }
+        case "digital": {
+          o1.type = "square";
+          o1.frequency.setValueAtTime(1240, now);
+          envelope(g, now, 0.001, 0.06, 0.16);
+          o1.start(now);
+          o1.stop(now + 0.08);
+          break;
+        }
+        case "pluck": {
+          o1.type = "sawtooth";
+          o1.frequency.setValueAtTime(420, now);
+          o1.frequency.exponentialRampToValueAtTime(260, now + 0.1);
+          envelope(g, now, 0.002, 0.1, 0.11);
+          o1.start(now);
+          o1.stop(now + 0.12);
+          break;
+        }
+        case "click": {
+          o1.type = "square";
+          o1.frequency.setValueAtTime(1680, now);
+          envelope(g, now, 0.001, 0.03, 0.13);
+          o1.start(now);
+          o1.stop(now + 0.035);
+          break;
+        }
+        case "sinePop": {
+          o1.type = "sine";
+          o1.frequency.setValueAtTime(520, now);
+          o1.frequency.exponentialRampToValueAtTime(820, now + 0.045);
+          envelope(g, now, 0.001, 0.07, 0.14);
+          o1.start(now);
+          o1.stop(now + 0.09);
+          break;
+        }
+        case "hiHat": {
+          const noise = ctx.createBufferSource();
+          const filter = ctx.createBiquadFilter();
+          noise.buffer = runtime.noiseBuffer;
+          filter.type = "highpass";
+          filter.frequency.setValueAtTime(6000, now);
+          noise.connect(filter);
+          filter.connect(g);
+          envelope(g, now, 0.001, 0.045, 0.2);
+          noise.start(now);
+          noise.stop(now + 0.05);
+          break;
+        }
+        case "pulse": {
+          o1.type = "triangle";
+          o1.frequency.setValueAtTime(170, now);
+          envelope(g, now, 0.002, 0.11, 0.2);
+          o1.start(now);
+          o1.stop(now + 0.13);
+          break;
+        }
+        case "glass": {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o1.type = "sine";
+          o2.type = "triangle";
+          o1.frequency.setValueAtTime(1180, now);
+          o2.frequency.setValueAtTime(2360, now);
+          o2.connect(g2);
+          g2.connect(runtime.masterGain);
+          envelope(g, now, 0.001, 0.12, 0.12);
+          envelope(g2, now, 0.001, 0.08, 0.06);
+          o1.start(now);
+          o2.start(now);
+          o1.stop(now + 0.13);
+          o2.stop(now + 0.1);
+          break;
+        }
+        default: {
+          o1.type = "sine";
+          o1.frequency.setValueAtTime(880, now);
+          envelope(g, now, 0.005, 0.09, 0.15);
+          o1.start(now);
+          o1.stop(now + 0.11);
+        }
+      }
+    }
+
+    /**
+     * 音效试播：
+     * - 切换音色时连续触发短音，总时长约 1 秒。
+     * - 试播期间临时借用运行态，仅用于复用既有音色合成逻辑。
+     */
+    function previewSoundOneSecond() {
+      ensureAudio();
+      if (!runtime.audioCtx || runtime.audioCtx.state !== "running") return;
+      const backupType = runtime.config.soundType;
+      const backupEnabled = runtime.config.soundEnabled;
+      const backupRunning = runtime.isRunning;
+      runtime.config.soundType = dom.soundType.value;
+      runtime.config.soundEnabled = true;
+      runtime.isRunning = true;
+
+      const startedAt = Date.now();
+      const previewTimer = window.setInterval(() => {
+        playTickSound();
+        if (Date.now() - startedAt >= 1000) {
+          window.clearInterval(previewTimer);
+          runtime.config.soundType = backupType;
+          runtime.config.soundEnabled = backupEnabled;
+          runtime.isRunning = backupRunning;
+        }
+      }, 220);
+    }
+
+    /**
+     * 结束长音：
+     * - 时间到时播放一段长鸣。
+     * - 若浏览器尚未解锁音频，设置待补播标记。
+     */
+    function playFinalAlarm() {
+      ensureAudio();
+      const ctx = runtime.audioCtx;
+      if (!ctx || ctx.state !== "running") {
+        runtime.pendingFinalAlarm = true;
+        return;
+      }
+      const now = ctx.currentTime;
+      const out = runtime.masterGain;
+      const ringDuration = 3;
+      const ringGap = 0.4;
+      const ringCount = 3;
+      for (let i = 0; i < ringCount; i += 1) {
+        const start = now + i * (ringDuration + ringGap);
+        const end = start + ringDuration;
+        const amp = ctx.createGain();
+        const pulseOsc = ctx.createOscillator();
+        const pulseGain = ctx.createGain();
+        const bodyFilter = ctx.createBiquadFilter();
+        const bellA = ctx.createOscillator();
+        const bellB = ctx.createOscillator();
+        const bellAGain = ctx.createGain();
+        const bellBGain = ctx.createGain();
+
+        bellA.type = "square";
+        bellB.type = "triangle";
+        bellA.frequency.setValueAtTime(2140, start);
+        bellA.frequency.exponentialRampToValueAtTime(2060, end);
+        bellB.frequency.setValueAtTime(2680, start);
+        bellB.frequency.exponentialRampToValueAtTime(2580, end);
+        bellAGain.gain.setValueAtTime(0.72, start);
+        bellBGain.gain.setValueAtTime(0.38, start);
+
+        bodyFilter.type = "bandpass";
+        bodyFilter.frequency.setValueAtTime(2350, start);
+        bodyFilter.Q.setValueAtTime(3.2, start);
+
+        amp.gain.setValueAtTime(0.001, start);
+        amp.gain.linearRampToValueAtTime(0.26, start + 0.03);
+        amp.gain.linearRampToValueAtTime(0.2, start + 0.2);
+        amp.gain.exponentialRampToValueAtTime(0.001, end);
+
+        pulseOsc.type = "square";
+        pulseOsc.frequency.setValueAtTime(13.8, start);
+        pulseGain.gain.setValueAtTime(0.07, start);
+
+        bellA.connect(bellAGain);
+        bellB.connect(bellBGain);
+        bellAGain.connect(bodyFilter);
+        bellBGain.connect(bodyFilter);
+        bodyFilter.connect(amp);
+        pulseOsc.connect(pulseGain);
+        pulseGain.connect(amp.gain);
+        amp.connect(out);
+
+        bellA.start(start);
+        bellB.start(start);
+        pulseOsc.start(start);
+        bellA.stop(end + 0.02);
+        bellB.stop(end + 0.02);
+        pulseOsc.stop(end + 0.02);
+      }
+    }
+
+    function getWhiteNoiseVolumeFromLevel(level) {
+      const safeLevel = Math.max(5, Math.min(100, Number(level) || DEFAULT_STATE.whiteNoiseLevel));
+      return (safeLevel / 100) * 0.28;
+    }
+
+    function getWhiteNoiseVolume() {
+      const level = Math.max(5, Math.min(100, Number(runtime.config.whiteNoiseLevel) || DEFAULT_STATE.whiteNoiseLevel));
+      return (level / 100) * 0.28;
+    }
+
+    function normalizeWhiteNoiseTexture(value) {
+      return Math.max(10, Math.min(100, Number(value) || DEFAULT_STATE.whiteNoiseTexture));
+    }
+
+    function shouldPlayWhiteNoise() {
+      return runtime.isRunning && !runtime.isFinished && runtime.config.whiteNoiseEnabled && !dom.modalMask.classList.contains("show");
+    }
+
+    function setWhiteNoiseVolumeSmooth(value, duration = 0.12) {
+      if (!runtime.whiteNoiseGain || !runtime.audioCtx || runtime.audioCtx.state !== "running") return;
+      const now = runtime.audioCtx.currentTime;
+      runtime.whiteNoiseGain.gain.cancelScheduledValues(now);
+      runtime.whiteNoiseGain.gain.setValueAtTime(runtime.whiteNoiseGain.gain.value, now);
+      runtime.whiteNoiseGain.gain.linearRampToValueAtTime(value, now + duration);
+    }
+
+    function clearWhiteNoiseNodes() {
+      if (runtime.whiteNoiseSource) {
+        try {
+          runtime.whiteNoiseSource.disconnect();
+        } catch (_) {}
+      }
+      if (runtime.whiteNoiseGain) {
+        try {
+          runtime.whiteNoiseGain.disconnect();
+        } catch (_) {}
+      }
+      runtime.whiteNoiseSource = null;
+      runtime.whiteNoiseGain = null;
+      runtime.whiteNoiseFilter = null;
+      runtime.whiteNoiseTypeInUse = "";
+      runtime.whiteNoiseBufferKeyInUse = "";
+    }
+
+    function stopWhiteNoise(withFade = true) {
+      window.clearTimeout(runtime.whiteNoiseStopTimer);
+      runtime.whiteNoiseStopTimer = 0;
+      if (!runtime.whiteNoiseSource || !runtime.whiteNoiseGain || !runtime.audioCtx || runtime.audioCtx.state !== "running") {
+        clearWhiteNoiseNodes();
+        return;
+      }
+      if (!withFade) {
+        try {
+          runtime.whiteNoiseSource.stop();
+        } catch (_) {}
+        clearWhiteNoiseNodes();
+        return;
+      }
+      setWhiteNoiseVolumeSmooth(0, 0.14);
+      runtime.whiteNoiseStopTimer = window.setTimeout(() => {
+        try {
+          runtime.whiteNoiseSource?.stop();
+        } catch (_) {}
+        clearWhiteNoiseNodes();
+        runtime.whiteNoiseStopTimer = 0;
+      }, 170);
+    }
+
+    function startWhiteNoise() {
+      ensureAudio();
+      const ctx = runtime.audioCtx;
+      if (!ctx || ctx.state !== "running") return;
+      window.clearTimeout(runtime.whiteNoiseStopTimer);
+      runtime.whiteNoiseStopTimer = 0;
+      const type = WHITE_NOISE_TYPE_SET.has(runtime.config.whiteNoiseType) ? runtime.config.whiteNoiseType : DEFAULT_STATE.whiteNoiseType;
+      const texture = normalizeWhiteNoiseTexture(runtime.config.whiteNoiseTexture);
+      const profile = getWhiteNoiseTypeProfile(type, texture);
+      if (runtime.whiteNoiseSource) {
+        const next = getWhiteNoiseLoopBuffer(type, texture);
+        if (!next) return;
+        if (runtime.whiteNoiseTypeInUse !== type || runtime.whiteNoiseBufferKeyInUse !== next.key) {
+          stopWhiteNoise(false);
+        } else {
+          if (runtime.whiteNoiseFilter && runtime.audioCtx?.state === "running") {
+            runtime.whiteNoiseFilter.frequency.setValueAtTime(profile.lowpassHz, runtime.audioCtx.currentTime);
+          }
+          setWhiteNoiseVolumeSmooth(getWhiteNoiseVolume(), 0.16);
+          return;
+        }
+      }
+      const loop = getWhiteNoiseLoopBuffer(type, texture);
+      if (!loop) return;
+      const source = ctx.createBufferSource();
+      source.buffer = loop.buffer;
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(profile.lowpassHz, ctx.currentTime);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(runtime.masterGain);
+      source.start();
+      runtime.whiteNoiseSource = source;
+      runtime.whiteNoiseGain = gain;
+      runtime.whiteNoiseFilter = filter;
+      runtime.whiteNoiseTypeInUse = type;
+      runtime.whiteNoiseBufferKeyInUse = loop.key;
+      setWhiteNoiseVolumeSmooth(getWhiteNoiseVolume(), 0.2);
+    }
+
+    function syncWhiteNoise() {
+      if (!shouldPlayWhiteNoise()) {
+        stopWhiteNoise(true);
+        return;
+      }
+      startWhiteNoise();
+      if (runtime.whiteNoiseGain && runtime.audioCtx?.state === "running") {
+        setWhiteNoiseVolumeSmooth(getWhiteNoiseVolume(), 0.16);
+      }
+    }
+
+    /**
+     * 启动倒计时：
+     * - 模式A：若首次或重置后，按 remainingMs 开始；暂停后继续从剩余值开始。
+     * - 模式B：每次开始都以“当前系统时间”重新计算与截止时间差。
+     */
+    function startCountdown() {
+      runtime.isFinished = false;
+      const now = Date.now();
+
+      if (runtime.config.mode === "duration") {
+        runtime.remainingMs = Math.max(0, runtime.remainingMs || durationToMs(runtime.config.durationValue, runtime.config.durationUnit));
+        runtime.targetTimestamp = now + runtime.remainingMs;
+      } else {
+        const deadlineTs = new Date(runtime.config.deadline).getTime();
+        if (!Number.isFinite(deadlineTs) || deadlineTs <= now) {
+          runtime.targetTimestamp = now;
+        } else {
+          runtime.targetTimestamp = deadlineTs;
+        }
+        if (deadlineStartTotalMs <= 0 || runtime.frozenMs <= 0) {
+          deadlineStartTotalMs = Math.max(0, runtime.targetTimestamp - now);
+        }
+      }
+
+      runtime.isRunning = true;
+      runtime.lastSecondStamp = "";
+      updateStartButtonText();
+      syncWhiteNoise();
+      updateBeforeUnloadGuard();
+      ensureWakeLock();
+      updateProgressBar();
+      tick();
+    }
+
+    /**
+     * 暂停倒计时：
+     * - 模式A：记录精确剩余毫秒，之后继续从该数值往下走。
+     * - 模式B：冻结画面值，之后继续时重新按真实时间差计算。
+     */
+    function pauseCountdown() {
+      const left = getCurrentRemainingMs();
+      runtime.isRunning = false;
+      if (runtime.config.mode === "duration") {
+        runtime.remainingMs = left;
+      } else {
+        runtime.frozenMs = left;
+      }
+      updateStartButtonText();
+      renderTime(left);
+      syncWhiteNoise();
+      updateBeforeUnloadGuard();
+      releaseWakeLock();
+      updateProgressBar();
+    }
+
+    /**
+     * 完成处理：
+     * - 统一进入结束态，停止运行。
+     * - 展示 00:00:00 与结束文案。
+     * - 触发长鸣音效。
+     */
+    function finishCountdown() {
+      runtime.isRunning = false;
+      runtime.isFinished = true;
+      runtime.remainingMs = 0;
+      runtime.frozenMs = 0;
+      stopQuoteCarousel();
+      hideQuote();
+      renderTime(0);
+      applyTitle();
+      updateStartButtonText();
+      syncWhiteNoise();
+      updateBeforeUnloadGuard();
+      releaseWakeLock();
+      updateProgressBar();
+      playFinalAlarm();
+    }
+
+    /**
+     * 主循环：
+     * - 使用 requestAnimationFrame 风格的 setInterval 刷新（约每120ms）。
+     * - 每次更新显示；
+     * - 跨秒时触发一次每秒音效；
+     * - 到零时自动结束。
+     */
+    function tick() {
+      const left = getCurrentRemainingMs();
+      renderTime(left);
+      applyTitle();
+      updateProgressBar();
+      updateBeforeUnloadGuard();
+
+      const secStamp = String(Math.floor(left / 1000));
+      if (runtime.isRunning && secStamp !== runtime.lastSecondStamp) {
+        runtime.lastSecondStamp = secStamp;
+        if (left > 0) playTickSound();
+      }
+
+      if (runtime.isRunning && left <= 0) {
+        finishCountdown();
+      }
+    }
+
+    /**
+     * 打开设置弹窗：
+     * - 从当前 config 复制到 draft。
+     * - 将 draft 映射到表单控件，便于用户修改。
+     */
+    function openModal() {
+      draft = { ...runtime.config };
+      dom.titleInput.value = draft.title;
+      dom.durationValue.value = draft.durationValue;
+      dom.durationUnit.value = draft.durationUnit;
+      dom.deadlineInput.value = draft.deadline;
+      dom.soundEnabled.checked = !!draft.soundEnabled;
+      dom.soundType.value = draft.soundType;
+      dom.whiteNoiseEnabled.checked = !!draft.whiteNoiseEnabled;
+      dom.whiteNoiseLevel.value = String(draft.whiteNoiseLevel || DEFAULT_STATE.whiteNoiseLevel);
+      dom.whiteNoiseType.value = WHITE_NOISE_TYPE_SET.has(draft.whiteNoiseType) ? draft.whiteNoiseType : DEFAULT_STATE.whiteNoiseType;
+      dom.whiteNoiseTexture.value = String(normalizeWhiteNoiseTexture(draft.whiteNoiseTexture));
+      dom.encourageInput.value = (draft.encouragements || DEFAULT_QUOTES).join("\n");
+      switchModeUI(draft.mode);
+      highlightBgOption(draft.bgType);
+      dom.modalMask.classList.add("show");
+      syncWhiteNoise();
+      releaseWakeLock();
+    }
+
+    /**
+     * 关闭设置弹窗。
+     */
+    function closeModal(options = {}) {
+      const { saveOnClose = true } = options;
+      if (saveOnClose && dom.modalMask.classList.contains("show")) {
+        saveSettings(false);
+      }
+      dom.modalMask.classList.remove("show");
+      applyBackground();
+      syncWhiteNoise();
+      if (runtime.isRunning && !runtime.isFinished) ensureWakeLock();
+      else releaseWakeLock();
+    }
+
+    /**
+     * 切换模式UI：
+     * - 更新两个 tab 的激活态。
+     * - 控制模式A与模式B面板的显隐。
+     */
+    function switchModeUI(mode) {
+      const isDuration = mode === "duration";
+      dom.modeDurationBtn.classList.toggle("active", isDuration);
+      dom.modeDeadlineBtn.classList.toggle("active", !isDuration);
+      dom.durationPanel.classList.toggle("hidden", !isDuration);
+      dom.deadlinePanel.classList.toggle("hidden", isDuration);
+      draft.mode = mode;
+    }
+
+    /**
+     * 背景按钮高亮联动。
+     */
+    function highlightBgOption(type) {
+      const options = dom.bgOptions.querySelectorAll(".bg-option");
+      options.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.bg === type);
+      });
+    }
+
+    /**
+     * 重建运行状态（保存设置后调用）：
+     * - 模式A：恢复初始总时长，不自动开始。
+     * - 模式B：立即自动开始。
+     */
+    function reinitByModeAfterSave() {
+      runtime.isRunning = false;
+      runtime.isFinished = false;
+      runtime.lastSecondStamp = "";
+
+      if (runtime.config.mode === "duration") {
+        runtime.remainingMs = durationToMs(runtime.config.durationValue, runtime.config.durationUnit);
+        runtime.frozenMs = 0;
+        renderTime(runtime.remainingMs);
+        updateStartButtonText();
+      } else {
+        deadlineStartTotalMs = 0;
+        runtime.frozenMs = Math.max(0, new Date(runtime.config.deadline).getTime() - Date.now());
+        startCountdown();
+      }
+      applyTitle();
+      updateResetButtonState();
+      syncWhiteNoise();
+    }
+
+    /**
+     * 保存设置：
+     * - 将表单值写回 config。
+     * - 本地持久化。
+     * - 按新模式重建显示与状态。
+     */
+    function saveSettings(shouldClose = true) {
+      const next = { ...runtime.config };
+      next.title = (dom.titleInput.value || "").trim() || DEFAULT_STATE.title;
+      next.bgType = draft.bgType || "light";
+      next.bgImage = draft.bgImage || "";
+      next.mode = draft.mode || "duration";
+      next.durationValue = Math.max(1, Number(dom.durationValue.value) || 1);
+      next.durationUnit = dom.durationUnit.value;
+      next.deadline = dom.deadlineInput.value;
+      next.soundEnabled = dom.soundEnabled.checked;
+      next.soundType = dom.soundType.value;
+      next.whiteNoiseEnabled = dom.whiteNoiseEnabled.checked;
+      next.whiteNoiseLevel = Math.max(5, Math.min(100, Number(dom.whiteNoiseLevel.value) || DEFAULT_STATE.whiteNoiseLevel));
+      next.whiteNoiseType = WHITE_NOISE_TYPE_SET.has(dom.whiteNoiseType.value) ? dom.whiteNoiseType.value : DEFAULT_STATE.whiteNoiseType;
+      next.whiteNoiseTexture = normalizeWhiteNoiseTexture(dom.whiteNoiseTexture.value);
+      next.encouragements = parseEncouragements(dom.encourageInput.value);
+
+      if (next.mode === "deadline" && !next.deadline) {
+        const plusOneHour = new Date(Date.now() + 60 * 60 * 1000);
+        const local = new Date(plusOneHour.getTime() - plusOneHour.getTimezoneOffset() * 60000);
+        next.deadline = local.toISOString().slice(0, 16);
+      }
+
+      runtime.config = next;
+      applyBackground();
+      syncWhiteNoise();
+      saveConfig();
+      reinitByModeAfterSave();
+      if (shouldClose) {
+        closeModal({ saveOnClose: false });
+      }
+    }
+
+    /**
+     * 鼓励语解析：
+     * - 每行一句，按换行符拆分；
+     * - 去除空行与首尾空白；
+     * - 为空时回退到默认文案。
+     */
+    function parseEncouragements(text) {
+      const items = String(text || "")
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return items.length ? items : [...DEFAULT_QUOTES];
+    }
+
+    /**
+     * 获取一条随机鼓励语：
+     * - avoidText 不为空时，尽量避免和上一条重复。
+     */
+    function getRandomQuote(avoidText = "") {
+      const list = Array.isArray(runtime.config.encouragements) && runtime.config.encouragements.length
+        ? runtime.config.encouragements
+        : DEFAULT_QUOTES;
+      if (list.length === 1) return list[0];
+      let next = list[Math.floor(Math.random() * list.length)];
+      let guard = 0;
+      while (next === avoidText && guard < 8) {
+        next = list[Math.floor(Math.random() * list.length)];
+        guard += 1;
+      }
+      return next;
+    }
+
+    /**
+     * 显示鼓励语文本（带淡出淡入过渡）。
+     */
+    function showQuote(text) {
+      if (!text) return;
+      dom.quoteText.classList.remove("fade-in");
+      if (!dom.quoteText.textContent) {
+        dom.quoteText.textContent = text;
+        dom.quoteText.classList.remove("fade-out");
+        dom.quoteText.classList.add("fade-in");
+        return;
+      }
+      if (dom.quoteText.textContent === text) {
+        dom.quoteText.classList.add("fade-in");
+        dom.quoteText.classList.remove("fade-out");
+        return;
+      }
+      dom.quoteText.classList.add("fade-out");
+      window.clearTimeout(quoteSwitchTimer);
+      quoteSwitchTimer = window.setTimeout(() => {
+        if (!dom.quoteWrap.classList.contains("show")) return;
+        dom.quoteText.textContent = text;
+        dom.quoteText.classList.remove("fade-out");
+        dom.quoteText.classList.add("fade-in");
+      }, 540);
+    }
+
+    /**
+     * 隐藏鼓励语区域。
+     */
+    function hideQuote() {
+      dom.quoteWrap.classList.remove("show");
+      window.clearTimeout(quoteSwitchTimer);
+      quoteSwitchTimer = 0;
+      dom.quoteText.classList.remove("fade-out");
+      dom.quoteText.classList.add("fade-in");
+    }
+
+    /**
+     * 停止鼓励语轮播。
+     */
+    function stopQuoteCarousel() {
+      window.clearInterval(quoteTimer);
+      window.clearTimeout(quoteSwitchTimer);
+      quoteTimer = 0;
+      quoteSwitchTimer = 0;
+    }
+
+    /**
+     * 启动鼓励语轮播：
+     * - 沉浸态下每 10 秒随机切换一次文案。
+     */
+    function startQuoteCarousel() {
+      stopQuoteCarousel();
+      quoteTimer = window.setInterval(() => {
+        if (!dom.quoteWrap.classList.contains("show") || runtime.isFinished) return;
+        const next = getRandomQuote(dom.quoteText.textContent);
+        showQuote(next);
+      }, 10000);
+    }
+
+    /**
+     * 进入沉浸态：
+     * - 先隐藏按钮，再显示随机鼓励语并启动轮播。
+     */
+    function enterImmersiveMode() {
+      if (runtime.isFinished) return;
+      dom.controls.classList.add("idle");
+      window.clearTimeout(quoteSwitchTimer);
+      quoteSwitchTimer = window.setTimeout(() => {
+        if (runtime.isFinished || !dom.controls.classList.contains("idle")) return;
+        showQuote(getRandomQuote(dom.quoteText.textContent));
+        requestAnimationFrame(() => {
+          dom.quoteWrap.classList.add("show");
+        });
+        startQuoteCarousel();
+      }, 360);
+    }
+
+    /**
+     * 唤醒交互区：
+     * - 立即隐藏鼓励语并停止轮播；
+     * - 重新显示控制按钮；
+     * - 重启 3 秒静止计时。
+     */
+    function wakeInteractiveZone() {
+      stopQuoteCarousel();
+      hideQuote();
+      dom.controls.classList.remove("idle");
+      if (runtime.isFinished) return;
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        enterImmersiveMode();
+      }, 3000);
+    }
+
+    /**
+     * 上传图片处理：
+     * - FileReader 读取原图；
+     * - Canvas 进行 16:9 中心裁切；
+     * - 限制输出分辨率（默认不超过 1920x1080）；
+     * - 压缩为 JPEG Base64 并写入 draft。
+     */
+    function handleImageUpload(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const targetRatio = 16 / 9;
+          let cropW = img.width;
+          let cropH = cropW / targetRatio;
+
+          if (cropH > img.height) {
+            cropH = img.height;
+            cropW = cropH * targetRatio;
+          }
+
+          const sx = (img.width - cropW) / 2;
+          const sy = (img.height - cropH) / 2;
+          const maxW = 1920;
+          const outW = Math.min(maxW, cropW);
+          const outH = outW / targetRatio;
+
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(outW);
+          canvas.height = Math.round(outH);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+          draft.bgType = "custom";
+          draft.bgImage = canvas.toDataURL("image/jpeg", 0.82);
+          highlightBgOption("custom");
+          applyBackgroundPreview(draft.bgType, draft.bgImage);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /**
+     * 模式B重置提示：
+     * - 悬浮或点击禁用重置按钮时显示 Tooltip。
+     */
+    function showResetTip() {
+      const rect = dom.resetBtn.getBoundingClientRect();
+      dom.tip.style.left = `${rect.left + rect.width / 2}px`;
+      dom.tip.style.top = `${rect.top - rect.height * 0.9}px`;
+      dom.tip.style.transform = "translate(-50%, 0)";
+      dom.tip.classList.add("show");
+      window.clearTimeout(showResetTip.timer);
+      showResetTip.timer = window.setTimeout(() => {
+        dom.tip.classList.remove("show");
+      }, 1800);
+    }
+
+    /**
+     * 沉浸式控制条自动隐藏：
+     * - 用户 3 秒无移动则淡出控制按钮。
+     * - 任意鼠标移动立即恢复显示并重新计时。
+     */
+    function resetIdleControls() {
+      wakeInteractiveZone();
+    }
+
+    /**
+     * 双击空白区域全屏切换：
+     * - 若双击标题则优先打开设置，不触发全屏。
+     * - 若双击弹窗内部也不触发全屏。
+     */
+    async function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen?.();
+      } else {
+        await document.exitFullscreen?.();
+      }
+    }
+
+    /**
+     * 初始化音效下拉框选项。
+     */
+    function initSoundOptions() {
+      dom.soundType.innerHTML = SOUND_LIST.map((s) => `<option value="${s.key}">${s.label}</option>`).join("");
+      dom.whiteNoiseType.innerHTML = WHITE_NOISE_TYPE_LIST.map((s) => `<option value="${s.key}">${s.label}</option>`).join("");
+    }
+
+    /**
+     * 页面初始化生命周期：
+     * - 加载本地配置；
+     * - 初始化背景与UI；
+     * - 根据上次模式执行关键规则：
+     *   1) 模式A：不自动开始，显示初始总时长；
+     *   2) 模式B：自动开始，按钮显示“暂停”。
+     */
+    function init() {
+      initSoundOptions();
+      runtime.config = loadConfig();
+      applyBackground();
+      updateResetButtonState();
+      hideQuote();
+
+      if (runtime.config.mode === "duration") {
+        runtime.remainingMs = durationToMs(runtime.config.durationValue, runtime.config.durationUnit);
+        runtime.isRunning = false;
+        runtime.isFinished = false;
+        renderTime(runtime.remainingMs);
+      } else {
+        deadlineStartTotalMs = 0;
+        runtime.isRunning = false;
+        runtime.isFinished = false;
+        startCountdown();
+      }
+
+      applyTitle();
+      updateStartButtonText();
+      syncWhiteNoise();
+      resetIdleControls();
+    }
+
+    /**
+     * 统一事件绑定：
+     * - 包含标题双击打开弹窗；
+     * - 空白双击全屏切换；
+     * - 开始/暂停/重置；
+     * - 弹窗的模式、背景、上传、保存、取消；
+     * - 音效试播；
+     * - 音频解锁与控制条隐藏逻辑。
+     */
+    function bindEvents() {
+      window.setInterval(tick, 120);
+
+      ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
+        window.addEventListener(evt, unlockAudio, { once: false, passive: true });
+      });
+
+      document.addEventListener("mousemove", resetIdleControls, { passive: true });
+      document.addEventListener("touchstart", resetIdleControls, { passive: true });
+      document.addEventListener("click", resetIdleControls, { passive: true });
+
+      dom.mainTitle.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        openModal();
+      });
+
+      document.addEventListener("dblclick", (e) => {
+        if (e.target.closest(".modal") || e.target.closest(".title")) return;
+        toggleFullscreen();
+      });
+
+      dom.startPauseBtn.addEventListener("click", () => {
+        if (runtime.isRunning) {
+          pauseCountdown();
+        } else {
+          startCountdown();
+        }
+      });
+
+      dom.resetBtn.addEventListener("mouseenter", () => {
+        if (runtime.config.mode === "deadline") showResetTip();
+      });
+
+      dom.resetBtn.addEventListener("click", () => {
+        if (runtime.config.mode === "deadline") {
+          showResetTip();
+          return;
+        }
+        runtime.isRunning = false;
+        runtime.isFinished = false;
+        runtime.remainingMs = durationToMs(runtime.config.durationValue, runtime.config.durationUnit);
+        deadlineStartTotalMs = 0;
+        runtime.lastSecondStamp = "";
+        applyTitle();
+        updateStartButtonText();
+        renderTime(runtime.remainingMs);
+        syncWhiteNoise();
+        updateBeforeUnloadGuard();
+        releaseWakeLock();
+        updateProgressBar();
+      });
+
+      window.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          releaseWakeLock();
+          return;
+        }
+        if (runtime.isRunning && !runtime.isFinished) ensureWakeLock();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && dom.modalMask.classList.contains("show")) {
+          e.preventDefault();
+          closeModal();
+          return;
+        }
+        if (e.key === "Enter" && !e.repeat && !dom.modalMask.classList.contains("show")) {
+          if (!shouldIgnoreHotkeys(e.target)) {
+            const now = Date.now();
+            if (now - lastEnterStamp <= 320) {
+              e.preventDefault();
+              openModal();
+              lastEnterStamp = 0;
+              return;
+            }
+            lastEnterStamp = now;
+          }
+        }
+        if (shouldIgnoreHotkeys(e.target)) return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          if (runtime.isRunning) pauseCountdown();
+          else startCountdown();
+          return;
+        }
+        if (e.key === "f" || e.key === "F") {
+          e.preventDefault();
+          toggleFullscreen();
+          return;
+        }
+      });
+
+      dom.cancelBtn.addEventListener("click", closeModal);
+      dom.modalMask.addEventListener("click", (e) => {
+        if (e.target === dom.modalMask) closeModal();
+      });
+
+      dom.modeDurationBtn.addEventListener("click", () => switchModeUI("duration"));
+      dom.modeDeadlineBtn.addEventListener("click", () => switchModeUI("deadline"));
+
+      dom.bgOptions.addEventListener("click", (e) => {
+        const btn = e.target.closest(".bg-option");
+        if (!btn) return;
+        const bg = btn.dataset.bg;
+        if (bg === "custom") {
+          dom.bgUploader.click();
+          return;
+        }
+        draft.bgType = bg;
+        if (bg !== "custom") draft.bgImage = "";
+        highlightBgOption(bg);
+        applyBackgroundPreview(draft.bgType, draft.bgImage);
+      });
+
+      dom.bgUploader.addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        handleImageUpload(file);
+        e.target.value = "";
+      });
+
+      dom.soundType.addEventListener("change", () => {
+        draft.soundType = dom.soundType.value;
+        previewSoundOneSecond();
+      });
+
+      dom.whiteNoiseEnabled.addEventListener("change", () => {
+        draft.whiteNoiseEnabled = dom.whiteNoiseEnabled.checked;
+      });
+
+      dom.whiteNoiseLevel.addEventListener("input", () => {
+        draft.whiteNoiseLevel = Math.max(5, Math.min(100, Number(dom.whiteNoiseLevel.value) || DEFAULT_STATE.whiteNoiseLevel));
+        if (runtime.whiteNoiseGain && runtime.audioCtx?.state === "running") {
+          setWhiteNoiseVolumeSmooth(getWhiteNoiseVolumeFromLevel(draft.whiteNoiseLevel), 0.08);
+        }
+      });
+
+      dom.whiteNoiseType.addEventListener("change", () => {
+        draft.whiteNoiseType = WHITE_NOISE_TYPE_SET.has(dom.whiteNoiseType.value) ? dom.whiteNoiseType.value : DEFAULT_STATE.whiteNoiseType;
+      });
+
+      dom.whiteNoiseTexture.addEventListener("input", () => {
+        draft.whiteNoiseTexture = normalizeWhiteNoiseTexture(dom.whiteNoiseTexture.value);
+      });
+
+      dom.saveBtn.addEventListener("click", saveSettings);
+    }
+
+function initActivationSystem() {
+      // 取消激活验证，直接解锁应用并启动
+      unlockApp();
+      bootstrapApp();
+    }
+
+    initActivationSystem();
+  </script>
+</body>
+</html>

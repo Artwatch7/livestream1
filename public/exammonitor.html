@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>智能监考大屏系统 | 专业版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* 大屏场景避免选中文字，不影响输入框 */
+        }
+
+        /* 基础变量与主题定义 */
+        :root {
+            /* 浅色模式 (默认) */
+            --bg-body: #f5f7fb;
+            --bg-main: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            --progress-bg: #e2e8f0;
+            --progress-fill: #3b82f6;
+            --indicator-wait: #eab308;
+            --indicator-active: #22c55e;
+            --indicator-end: #ef4444;
+            --header-bg: #f8fafc;
+            --clock-color: #0f172a;
+            --remain-normal: #1e293b;
+            --btn-primary: #3b82f6;
+            --btn-primary-hover: #2563eb;
+            --btn-danger: #ef4444;
+            --sidebar-border: #e2e8f0;
+            --input-bg: #ffffff;
+            --input-text: #1e293b;
+            --input-border: #cbd5e1;
+        }
+
+        /* 深色模式 */
+        body[data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-main: #1e293b;
+            --bg-sidebar: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-color: #334155;
+            --card-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            --progress-bg: #334155;
+            --progress-fill: #60a5fa;
+            --header-bg: #0f172a;
+            --clock-color: #f1f5f9;
+            --remain-normal: #f1f5f9;
+            --sidebar-border: #334155;
+            --input-bg: #1e293b;
+            --input-text: #f1f5f9;
+            --input-border: #475569;
+        }
+
+        /* 雅灰色调（不饱和、安逸护眼） */
+        body[data-theme="deepblue"] {
+            --bg-body: #e8ecef;
+            --bg-main: #f4f6f8;
+            --bg-sidebar: #f4f6f8;
+            --text-primary: #3a4048;
+            --text-secondary: #6b7280;
+            --border-color: #d1d5db;
+            --card-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            --progress-bg: #d1d5db;
+            --progress-fill: #6b7280;
+            --header-bg: #eef1f4;
+            --clock-color: #3a4048;
+            --remain-normal: #4b5563;
+            --sidebar-border: #d1d5db;
+            --input-bg: #ffffff;
+            --input-text: #3a4048;
+            --input-border: #c4c9d0;
+        }
+
+        /* 科技风格 */
+        body[data-theme="tech"] {
+            --bg-body: #030617;
+            --bg-main: #0a0f2a;
+            --bg-sidebar: #0a0f2a;
+            --text-primary: #00f2ff;
+            --text-secondary: #9cf5ff;
+            --border-color: #1f3a5f;
+            --card-shadow: 0 0 20px rgba(0,242,255,0.1);
+            --progress-bg: #1f3a5f;
+            --progress-fill: #00f2ff;
+            --header-bg: #050a1f;
+            --clock-color: #00f2ff;
+            --remain-normal: #b0f3ff;
+            --sidebar-border: #0e2a44;
+            --input-bg: #050a1f;
+            --input-text: #00f2ff;
+            --input-border: #1f6e8c;
+            font-family: 'Courier New', 'Fira Code', monospace;
+        }
+
+        body {
+            background: var(--bg-body);
+            font-family: 'Segoe UI', 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            transition: background 0.2s, color 0.2s;
+            min-height: 100vh;
+        }
+
+        /* 整体布局 Grid: 左侧主区 右侧设置区 */
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 24px;
+            height: calc(100vh - 40px);
+        }
+
+        /* 主区域（顶部栏+时钟区+底部纪律） */
+        .main-area {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+            border-radius: 32px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            transition: background 0.2s;
+        }
+
+        /* 顶部信息栏 */
+        .top-bar {
+            background: var(--header-bg);
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            position: relative;
+        }
+
+        .exam-info {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-weight: 500;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+            color: var(--text-primary);
+            background: rgba(0,0,0,0.05);
+            padding: 6px 14px;
+            border-radius: 40px;
+            background: var(--bg-body);
+        }
+
+        .status-led {
+            position: absolute;
+            top: 50%;
+            right: 28px;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            background: var(--bg-body);
+            padding: 6px 12px;
+            border-radius: 40px;
+            z-index: 5;
+        }
+
+        .led {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: gray;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .led.wait { background-color: var(--indicator-wait); box-shadow: 0 0 8px #eab308; }
+        .led.active { background-color: var(--indicator-active); box-shadow: 0 0 8px #22c55e; }
+        .led.end { background-color: var(--indicator-end); box-shadow: 0 0 8px #ef4444; }
+
+        /* 中央时钟区 */
+        .clock-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .real-clock {
+            font-size: clamp(4rem, 14vw, 10rem);
+            font-weight: 800;
+            font-family: monospace;
+            letter-spacing: 4px;
+            color: var(--clock-color);
+            text-shadow: 0 0 8px rgba(0,0,0,0.1);
+            margin-bottom: 32px;
+            background: linear-gradient(135deg, var(--clock-color) 0%, var(--progress-fill) 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-shadow: none;
+        }
+        /* 科技风格单独强调实色 */
+        body[data-theme="tech"] .real-clock {
+            background: none;
+            color: var(--clock-color);
+            text-shadow: 0 0 10px #00f2ff;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--bg-body);
+            padding: 12px 24px;
+            border-radius: 48px;
+            min-width: 160px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: monospace;
+        }
+
+        /* 倒计时特别加粗 - 极致厚重显眼 */
+        .remain-time {
+            font-weight: 900 !important;
+            font-size: 2.4rem !important;
+            font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace !important;
+            letter-spacing: 4px;
+            text-shadow: 0 0 4px currentColor;
+            background: linear-gradient(135deg, currentColor 0%, currentColor 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: var(--text-primary) !important;
+            opacity: 1;
+        }
+        /* 闪烁时更强效果 */
+        .blink-red {
+            color: #ff3b3b !important;
+            animation: blinkWarningStrong 0.7s step-end infinite;
+            font-weight: 900 !important;
+            text-shadow: 0 0 8px rgba(255,0,0,0.8) !important;
+        }
+        @keyframes blinkWarningStrong {
+            0%, 100% { opacity: 1; text-shadow: 0 0 5px red; }
+            50% { opacity: 0.65; text-shadow: 0 0 18px red; }
+        }
+
+        .progress-container {
+            width: 70%;
+            max-width: 600px;
+            background-color: var(--progress-bg);
+            border-radius: 20px;
+            height: 12px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--progress-fill);
+            border-radius: 20px;
+            transition: width 0.3s ease;
+            margin-left: auto;
+        }
+
+        /* 底部纪律栏 - 无图标，纯文字严肃风格 */
+        .footer-moral {
+            background: var(--header-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 20px 28px;
+            text-align: center;
+        }
+        .slogan {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            letter-spacing: 2px;
+        }
+        .slogan:first-child {
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        /* 右侧设置区 */
+        .sidebar {
+            background: var(--bg-sidebar);
+            border-radius: 32px;
+            padding: 24px 20px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--sidebar-border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* 考试模式：隐藏侧边栏，主区域撑满，去除外边距 */
+        body.exam-mode { padding: 0; }
+        body.exam-mode .sidebar { display: none; }
+        body.exam-mode .dashboard { grid-template-columns: 1fr; height: 100vh; }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .setting-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+        select, input, button {
+            padding: 12px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--input-text);
+            font-size: 0.9rem;
+            outline: none;
+            transition: 0.2s;
+        }
+        /* 专门针对时间选择器优化，使其在所有主题下明显 */
+        input[type="datetime-local"] {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
+            font-family: inherit;
+        }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+        body[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        body[data-theme="deepblue"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        body[data-theme="tech"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8) brightness(1.2);
+        }
+        /* 增强选择器背景对比 */
+        body[data-theme="dark"] input[type="datetime-local"],
+        body[data-theme="deepblue"] input[type="datetime-local"],
+        body[data-theme="tech"] input[type="datetime-local"] {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--input-border);
+            box-shadow: 0 0 0 1px rgba(96,165,250,0.2);
+        }
+        select:focus, input:focus {
+            border-color: var(--progress-fill);
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+        }
+        button {
+            background: var(--btn-primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: var(--btn-primary-hover);
+            transform: scale(0.98);
+        }
+        .btn-danger {
+            background: var(--btn-danger);
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .theme-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .theme-btn {
+            background: var(--bg-main);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+        }
+        .disabled-control {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        hr {
+            border-color: var(--border-color);
+            margin: 5px 0;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                height: auto;
+                gap: 20px;
+            }
+            .stats {
+                gap: 20px;
+            }
+            .remain-time {
+                font-size: 1.8rem !important;
+                letter-spacing: 2px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+<div class="dashboard">
+    <!-- 左侧主显示区域 -->
+    <div class="main-area">
+        <div class="top-bar">
+            <div class="exam-info">
+                <div class="info-item">📚 科目: <span id="displaySubject">语文</span></div>
+                <div class="info-item">⏰ 时段: <span id="displayTimeRange">--:-- 至 --:--</span></div>
+                <div class="info-item">📄 试卷: <span id="displayPaperInfo">共2张4页 / 4大题35小题</span></div>
+                <div class="info-item">📝 答题卡: <span id="displayAnswerSheet">共1张1页</span></div>
+                <div class="info-item" id="invigilatorInfoItem" style="display:none">👨‍🏫 监考: <span id="displayInvigilator"></span></div>
+            </div>
+            <div class="status-led">
+                <span class="led" id="statusLed" title="考试状态指示灯"></span>
+            </div>
+        </div>
+
+        <div class="clock-area">
+            <div class="real-clock" id="liveClock">--:--:--</div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">考试状态</div>
+                    <div class="stat-value" id="examStateLabel">⚪ 未启动</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">剩余时间</div>
+                    <div class="stat-value remain-time" id="remainingTimeVal">--:--:--</div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-fill" id="examProgress"></div>
+            </div>
+        </div>
+
+        <!-- 底部纪律栏 - 已去除图标，保持严肃文字 -->
+        <div class="footer-moral">
+            <div class="slogan">严肃考风考纪  认真规范答题</div>
+            <div class="slogan">诚信考试光荣  违纪作弊可耻</div>
+        </div>
+    </div>
+
+    <!-- 右侧控制面板 -->
+    <div class="sidebar">
+        <div class="setting-group">
+            <label>🎨 视觉主题</label>
+            <div class="theme-buttons">
+                <button class="theme-btn" data-theme="light">浅色</button>
+                <button class="theme-btn" data-theme="dark">深色</button>
+                <button class="theme-btn" data-theme="deepblue">雅灰</button>
+                <button class="theme-btn" data-theme="tech">科技</button>
+            </div>
+        </div>
+        <hr>
+        <div class="setting-group">
+            <label>📖 考试科目</label>
+            <select id="subjectSelect">
+                <option value="语文">语文</option><option value="数学">数学</option><option value="英语">英语</option>
+                <option value="科学">科学</option><option value="物理">物理</option><option value="化学">化学</option>
+                <option value="政治(道法)">政治(道法)</option><option value="历史">历史</option>
+                <option value="地理">地理</option><option value="生物">生物</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <label>⏱️ 开始时间</label>
+            <input type="datetime-local" id="startTimeInput">
+        </div>
+        <div class="setting-group">
+            <label>⏱️ 结束时间</label>
+            <input type="datetime-local" id="endTimeInput">
+        </div>
+        <div class="setting-group">
+            <label>📑 试卷信息 (张数/页数)</label>
+            <div style="display: flex; gap: 10px;">
+                <select id="paperSheets" style="flex:1"></select>
+                <select id="paperPages" style="flex:1"></select>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label>📋 试卷结构</label>
+            <div style="display: flex; gap: 10px;">
+                <select id="majorQuestions" style="flex:1">
+                    <option value="1">1大题</option><option value="2">2大题</option><option value="3">3大题</option>
+                    <option value="4" selected>4大题</option><option value="5">5大题</option>
+                    <option value="6">6大题</option><option value="7">7大题</option><option value="8">8大题</option>
+                </select>
+                <select id="subQuestions" style="flex:1">
+                    <option value="10">10小题</option><option value="15">15小题</option><option value="20">20小题</option>
+                    <option value="25">25小题</option><option value="30">30小题</option><option value="35" selected>35小题</option>
+                    <option value="40">40小题</option><option value="45">45小题</option>
+                    <option value="50">50小题</option>
+                </select>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label>📝 答题卡 (张数/页数)</label>
+            <div style="display: flex; gap: 10px;">
+                <select id="answerSheetSheets" style="flex:1"></select>
+                <select id="answerSheetPages" style="flex:1"></select>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label>🧑‍🏫 监考人员 (选填)</label>
+            <input type="text" id="invigilatorInput" placeholder="例如: 张老师、李老师" autocomplete="off">
+        </div>
+        <div class="setting-group">
+            <button id="startExamBtn">🚀 确认开始监考</button>
+            <button id="endExamBtn" class="btn-danger" style="margin-top: 8px; background:#64748b;">🔚 结束监考 / 重置</button>
+        </div>
+        <div class="setting-group">
+            <small style="color: var(--text-secondary);">※ 开始监考后自动全屏，倒计时依据起止时间进行；结束考试恢复编辑。</small>
+        </div>
+        <div style="text-align:center; font-size:0.75rem; color: var(--text-secondary); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+            copyright@aw
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- DOM 元素 ----------
+    const body = document.body;
+    const subjectSelect = document.getElementById('subjectSelect');
+    const startTimeInput = document.getElementById('startTimeInput');
+    const endTimeInput = document.getElementById('endTimeInput');
+    const paperSheets = document.getElementById('paperSheets');
+    const paperPages = document.getElementById('paperPages');
+    const majorQuestions = document.getElementById('majorQuestions');
+    const subQuestions = document.getElementById('subQuestions');
+    const answerSheetSheets = document.getElementById('answerSheetSheets');
+    const answerSheetPages = document.getElementById('answerSheetPages');
+    const invigilatorInput = document.getElementById('invigilatorInput');
+    const startBtn = document.getElementById('startExamBtn');
+    const endExamBtn = document.getElementById('endExamBtn');
+    
+    // 显示区元素
+    const displaySubjectSpan = document.getElementById('displaySubject');
+    const displayTimeRangeSpan = document.getElementById('displayTimeRange');
+    const displayPaperInfoSpan = document.getElementById('displayPaperInfo');
+    const displayAnswerSheetSpan = document.getElementById('displayAnswerSheet');
+    const displayInvigilatorSpan = document.getElementById('displayInvigilator');
+    const statusLed = document.getElementById('statusLed');
+    const liveClockDiv = document.getElementById('liveClock');
+    const examStateLabel = document.getElementById('examStateLabel');
+    const remainingTimeVal = document.getElementById('remainingTimeVal');
+    const examProgressFill = document.getElementById('examProgress');
+
+    // ----- 全局变量 -----
+    let isInvigilating = false;         // 是否处于监考模式
+    let timerInterval = null;            // 每秒刷新定时器
+    let examStartDate = null;            // Date对象 (开始时刻)
+    let examEndDate = null;              // Date对象 (结束时刻)
+    let currentSubject = "语文";
+    let currentPaperInfo = "共2张4页";
+    let currentInvigilator = "";
+    
+    // 辅助函数：格式化 时:分:秒
+    function formatTimeHM(date) {
+        if(!date) return "--:--";
+        const h = date.getHours().toString().padStart(2,'0');
+        const m = date.getMinutes().toString().padStart(2,'0');
+        return `${h}:${m}`;
+    }
+    function formatDateTimeHM(date) {
+        if(!date) return "--:--";
+        return formatTimeHM(date);
+    }
+    // 格式化秒数为 HH:MM:SS
+    function formatSeconds(seconds) {
+        if(seconds < 0) seconds = 0;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+    
+    // 更新顶部信息栏 (根据当前下拉值)
+    function updateTopBarFromSettings() {
+        displaySubjectSpan.innerText = subjectSelect.value;
+        const startVal = startTimeInput.value;
+        const endVal = endTimeInput.value;
+        let rangeStr = "--:-- 至 --:--";
+        if(startVal && endVal) {
+            const startDate = new Date(startVal);
+            const endDate = new Date(endVal);
+            rangeStr = `${formatTimeHM(startDate)} 至 ${formatTimeHM(endDate)}`;
+        }
+        displayTimeRangeSpan.innerText = rangeStr;
+        const sheets = paperSheets.value;
+        const pages = paperPages.value;
+        const majors = majorQuestions.value;
+        const subs = subQuestions.value;
+        displayPaperInfoSpan.innerText = `共${sheets}张${pages}页 / ${majors}大题${subs}小题`;
+        const answerSheetSheetsVal = answerSheetSheets.value;
+        const answerPages = answerSheetPages.value;
+        displayAnswerSheetSpan.innerText = `共${answerSheetSheetsVal}张${answerPages}页`;
+        const invigilator = invigilatorInput.value.trim();
+        const invigItem = document.getElementById('invigilatorInfoItem');
+        if (invigilator === "") {
+            invigItem.style.display = "none";
+            displayInvigilatorSpan.innerText = "";
+        } else {
+            invigItem.style.display = "";
+            displayInvigilatorSpan.innerText = invigilator;
+        }
+        // 同步全局
+        currentPaperInfo = `共${sheets}张${pages}页 / ${majors}大题${subs}小题`;
+        currentSubject = subjectSelect.value;
+        currentInvigilator = invigilator;
+    }
+    
+    // 同步考试时间段内部存储
+    function syncExamDatesFromInput() {
+        const startStr = startTimeInput.value;
+        const endStr = endTimeInput.value;
+        if(startStr && endStr) {
+            examStartDate = new Date(startStr);
+            examEndDate = new Date(endStr);
+            return true;
+        }
+        return false;
+    }
+    
+    // 铃声播放 (Web Audio API)
+    function playBell() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = ctx.currentTime;
+            // 两声铃：DING (880Hz) + DONG (660Hz)
+            [880, 660].forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.35, now + i * 0.6);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.6 + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + i * 0.6);
+                osc.stop(now + i * 0.6 + 0.5);
+            });
+        } catch(e) { /* 静默处理 */ }
+    }
+    
+    let endBellRung = false;  // 防止结束铃声重复播放
+    let startBellRung = false; // 防止开始铃声重复播放
+    
+    // 监考核心逻辑：根据当前时间更新UI状态 (指示灯、剩余、已用、进度、闪烁)
+    function updateExamUIByCurrentTime(now) {
+        if (!isInvigilating) return;
+        if (!examStartDate || !examEndDate) {
+            // 无效数据，显示默认
+            examStateLabel.innerText = "⚙️ 配置错误";
+            return;
+        }
+        const nowTime = now.getTime();
+        const startTime = examStartDate.getTime();
+        const endTime = examEndDate.getTime();
+        let status = "wait"; // wait, active, end
+        let remainingSec = 0, usedSec = 0, totalDuration = (endTime - startTime) / 1000;
+        let progressPercent = 100;  // 减少方式：100%→0%
+        
+        if (nowTime < startTime) {
+            status = "wait";
+            remainingSec = (startTime - nowTime) / 1000;
+            usedSec = 0;
+            progressPercent = 100;
+        } else if (nowTime >= startTime && nowTime <= endTime) {
+            status = "active";
+            remainingSec = (endTime - nowTime) / 1000;
+            usedSec = (nowTime - startTime) / 1000;
+            if(totalDuration > 0) progressPercent = (remainingSec / totalDuration) * 100;
+            if(progressPercent < 0) progressPercent = 0;
+        } else {
+            status = "end";
+            remainingSec = 0;
+            usedSec = totalDuration > 0 ? totalDuration : 0;
+            progressPercent = 0;
+            if (!endBellRung) { playBell(); endBellRung = true; }
+        }
+        
+        // 更新指示灯（无文字）
+        if(status === "wait") {
+            statusLed.className = "led wait";
+            examStateLabel.innerText = "⏳ 等待开考";
+        } else if(status === "active") {
+            statusLed.className = "led active";
+            examStateLabel.innerText = "✍️ 考试中";
+            if (!startBellRung) { playBell(); startBellRung = true; }
+        } else {
+            statusLed.className = "led end";
+            examStateLabel.innerText = "🏁 已结束";
+        }
+        
+        // 剩余时间显示 (特殊处理等待状态时显示距离开考倒计时)
+        let remainingDisplay = "";
+        if(status === "wait") {
+            remainingDisplay = formatSeconds(remainingSec);
+            remainingTimeVal.classList.remove("blink-red");
+        } else if(status === "active") {
+            remainingDisplay = formatSeconds(remainingSec);
+            // 闪烁条件：剩余时间 < 15分钟 (900秒)
+            if(remainingSec < 900 && remainingSec > 0) {
+                remainingTimeVal.classList.add("blink-red");
+            } else {
+                remainingTimeVal.classList.remove("blink-red");
+            }
+        } else {
+            remainingDisplay = "00:00:00";
+            remainingTimeVal.classList.remove("blink-red");
+        }
+        
+        remainingTimeVal.innerText = remainingDisplay;
+        examProgressFill.style.width = `${Math.max(0, Math.min(100, progressPercent))}%`;
+        
+        // 考试进行中如果剩余时间负值强制修正
+        if(status === "active" && remainingSec <= 0 && nowTime >= endTime) {
+            setTimeout(() => updateExamUIByCurrentTime(new Date()), 50);
+        }
+    }
+    
+    // 刷新实时时钟 + 全局监考UI
+    function refreshAll() {
+        const now = new Date();
+        // 更新大时钟 (时:分:秒)
+        const hours = now.getHours().toString().padStart(2,'0');
+        const minutes = now.getMinutes().toString().padStart(2,'0');
+        const seconds = now.getSeconds().toString().padStart(2,'0');
+        liveClockDiv.innerText = `${hours}:${minutes}:${seconds}`;
+        
+        if(isInvigilating) {
+            updateExamUIByCurrentTime(now);
+        } else {
+            // 非监考状态占位
+            examStateLabel.innerText = "⚪ 未启动";
+            remainingTimeVal.innerText = "--:--:--";
+            examProgressFill.style.width = "100%";
+            statusLed.className = "led wait";
+            remainingTimeVal.classList.remove("blink-red");
+        }
+    }
+    
+    // 启动计时循环
+    function startTimer() {
+        if(timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            refreshAll();
+        }, 1000);
+        refreshAll();
+    }
+    
+    // 初始化永久定时器
+    function initPermanentTimer() {
+        if(timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            refreshAll();
+        }, 1000);
+        refreshAll();
+    }
+    
+    // 设置监考模式启用 (锁定表单，进入全屏)
+    async function startInvigilate() {
+        if(isInvigilating) return;
+        // 获取数据
+        const startVal = startTimeInput.value;
+        const endVal = endTimeInput.value;
+        if(!startVal || !endVal) {
+            alert("请完整填写开始时间和结束时间！");
+            return;
+        }
+        const startDate = new Date(startVal);
+        const endDate = new Date(endVal);
+        if(startDate >= endDate) {
+            alert("结束时间必须晚于开始时间！");
+            return;
+        }
+        // 同步考试核心时间
+        examStartDate = startDate;
+        examEndDate = endDate;
+        
+        // 锁定右侧设置区域 (禁用所有编辑控件)
+        const controls = [subjectSelect, startTimeInput, endTimeInput, paperSheets, paperPages, majorQuestions, subQuestions, answerSheetSheets, answerSheetPages, invigilatorInput];
+        controls.forEach(ctrl => ctrl.disabled = true);
+        // 更新顶部一次性数据
+        updateTopBarFromSettings();
+        
+        isInvigilating = true;
+        endBellRung = false;
+        startBellRung = false;
+        // 隐藏设置面板，主区域全屏
+        document.body.classList.add('exam-mode');
+        // 立即刷新状态
+        refreshAll();
+        
+        // 全屏请求
+        try {
+            const elem = document.documentElement;
+            if(elem.requestFullscreen) await elem.requestFullscreen();
+        } catch(e) { console.warn("全屏失败", e); }
+        
+        // 按钮样式微调: 开始按钮禁用，结束按钮可用
+        startBtn.disabled = true;
+        startBtn.style.opacity = "0.6";
+        endExamBtn.disabled = false;
+        endExamBtn.style.background = "var(--btn-danger)";
+    }
+    
+    // 结束监考，重置所有，退出全屏，恢复编辑
+    async function endInvigilate() {
+        if(!isInvigilating) {
+            if(document.fullscreenElement) await document.exitFullscreen().catch(e=>null);
+            return;
+        }
+        isInvigilating = false;
+        // 恢复设置面板显示
+        document.body.classList.remove('exam-mode');
+        // 恢复右侧控件
+        const controls = [subjectSelect, startTimeInput, endTimeInput, paperSheets, paperPages, majorQuestions, subQuestions, answerSheetSheets, answerSheetPages, invigilatorInput];
+        controls.forEach(ctrl => ctrl.disabled = false);
+        startBtn.disabled = false;
+        startBtn.style.opacity = "1";
+        endExamBtn.style.background = "#64748b";
+        // 退出全屏
+        if(document.fullscreenElement) await document.exitFullscreen().catch(e=>null);
+        // 刷新UI到未监考模式占位
+        refreshAll();
+        // 重置顶部栏基于当前设置的值（解禁后刷新文本）
+        updateTopBarFromSettings();
+        // 清除闪烁样式
+        remainingTimeVal.classList.remove("blink-red");
+    }
+    
+    // 主题切换
+    function setTheme(themeName) {
+        body.setAttribute('data-theme', themeName);
+        localStorage.setItem('proctorTheme', themeName);
+    }
+    
+    // 监听设置变化并实时更新顶部栏 (未监考时随时同步展示)
+    function bindSettingsEvents() {
+        const updateTop = () => { if(!isInvigilating) updateTopBarFromSettings(); };
+        subjectSelect.addEventListener('change', updateTop);
+        paperSheets.addEventListener('change', updateTop);
+        paperPages.addEventListener('change', updateTop);
+        majorQuestions.addEventListener('change', updateTop);
+        subQuestions.addEventListener('change', updateTop);
+        answerSheetSheets.addEventListener('change', updateTop);
+        answerSheetPages.addEventListener('change', updateTop);
+        invigilatorInput.addEventListener('input', updateTop);
+        startTimeInput.addEventListener('change', () => {
+            if(!isInvigilating) updateTopBarFromSettings();
+        });
+        endTimeInput.addEventListener('change', () => {
+            if(!isInvigilating) updateTopBarFromSettings();
+        });
+    }
+    
+    // 初始化默认时间 (今天9:00 至 11:30 示例)
+    function initDefaultTimes() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth()+1).padStart(2,'0');
+        const day = String(now.getDate()).padStart(2,'0');
+        const defaultStart = `${year}-${month}-${day}T09:00`;
+        const defaultEnd = `${year}-${month}-${day}T11:30`;
+        startTimeInput.value = defaultStart;
+        endTimeInput.value = defaultEnd;
+        updateTopBarFromSettings();
+    }
+    
+    // 动态生成 select 选项
+    function populateSelect(id, max, unit, defaultVal) {
+        const sel = document.getElementById(id);
+        for (let i = 1; i <= max; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i + unit;
+            if (i === defaultVal) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    }
+    
+    function initSelects() {
+        populateSelect('paperSheets', 30, '张', 2);
+        populateSelect('paperPages', 40, '页', 4);
+        populateSelect('answerSheetSheets', 5, '张', 1);
+        populateSelect('answerSheetPages', 10, '页', 1);
+    }
+    
+    // 事件绑定
+    startBtn.addEventListener('click', startInvigilate);
+    endExamBtn.addEventListener('click', endInvigilate);
+    
+    // 主题按钮
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const theme = btn.getAttribute('data-theme');
+            setTheme(theme);
+        });
+    });
+    
+    // 页面启动
+    function init() {
+        initSelects();
+        initDefaultTimes();
+        bindSettingsEvents();
+        initPermanentTimer();
+        const savedTheme = localStorage.getItem('proctorTheme');
+        if(savedTheme) setTheme(savedTheme);
+        else setTheme('light');
+        isInvigilating = false;
+        refreshAll();
+    }
+    init();
+</script>
+</body>
+</html>
